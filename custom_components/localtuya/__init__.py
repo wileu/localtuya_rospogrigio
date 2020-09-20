@@ -1,6 +1,8 @@
 """The LocalTuya integration integration."""
 import logging
 import voluptuous as vol
+from time import time, sleep
+from threading import Lock
 
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -20,10 +22,24 @@ from homeassistant.helpers.entity import Entity
 from . import pytuya
 from .const import CONF_LOCAL_KEY, CONF_PROTOCOL_VERSION, DOMAIN
 
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
+
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_ID = "1"
 DEFAULT_PROTOCOL_VERSION = 3.3
+
+DEVICE_SCHEMA = {
+    vol.Optional(CONF_ICON): cv.icon,  # Deprecated: not used
+    vol.Required(CONF_HOST): cv.string,
+    vol.Required(CONF_DEVICE_ID): cv.string,
+    vol.Required(CONF_LOCAL_KEY): cv.string,
+    vol.Required(CONF_FRIENDLY_NAME): cv.string,
+    vol.Required(CONF_PROTOCOL_VERSION, default=DEFAULT_PROTOCOL_VERSION): vol.Coerce(
+        float
+    ),
+}
 
 BASE_PLATFORM_SCHEMA = {
     vol.Optional(CONF_ICON): cv.icon,  # Deprecated: not used
@@ -39,8 +55,8 @@ BASE_PLATFORM_SCHEMA = {
 }
 
 
-def prepare_setup_entities(config_entry, platform):
-    """Prepare ro setup entities for a platform."""
+def prepare_setup_entities(hass, config_entry, platform):
+    """Prepare to setup entities for a platform."""
     entities_to_setup = [
         entity
         for entity in config_entry.data[CONF_ENTITIES]
@@ -49,16 +65,7 @@ def prepare_setup_entities(config_entry, platform):
     if not entities_to_setup:
         return None, None
 
-    device = pytuya.TuyaDevice(
-        config_entry.data[CONF_DEVICE_ID],
-        config_entry.data[CONF_HOST],
-        config_entry.data[CONF_LOCAL_KEY],
-    )
-    device.set_version(float(config_entry.data[CONF_PROTOCOL_VERSION]))
-
-    for device_config in entities_to_setup:
-        # this has to be done in case the device type is type_0d
-        device.add_dps_to_request(device_config[CONF_ID])
+    device = hass.data[DOMAIN].get(config_entry.data[CONF_DEVICE_ID])
 
     return device, entities_to_setup
 
@@ -76,14 +83,35 @@ def import_from_yaml(hass, config, platform):
 
 
 async def async_setup(hass: HomeAssistant, config: dict):
-    """Set up the LocalTuya integration component."""
+    if DOMAIN not in config:
+        return True
+
+    hosts = config[DOMAIN]
+    if not hosts:
+        print("Strange....")
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": SOURCE_IMPORT}
+            )
+        )
+    for host_config in hosts:
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": SOURCE_IMPORT}, data=host_config
+            )
+        )
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up LocalTuya integration from a config entry."""
-    for platform in set(entity[CONF_PLATFORM] for entity in entry.data[CONF_ENTITIES]):
-        #        print("ASE*** [{}] [{}]".format(entry.data["entities"][0][CONF_PLATFORM], platform))
+    tuyaDevice = TuyaCache(entry.data)
+    if not tuyaDevice:
+        return False
+    hass.data.setdefault(DOMAIN, {}).update({entry.data[CONF_DEVICE_ID]: tuyaDevice})
+
+    for entity in entry.data[CONF_ENTITIES]:
+        platform = entity[CONF_PLATFORM]
         hass.async_create_task(
             hass.config_entries.async_forward_entry_setup(entry, platform)
         )
@@ -92,7 +120,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Unload a config entry."""
-    # Nothing is stored and no persistent connections exist, so nothing to do
+    hass.data[DOMAIN].pop(config_entry.data[CONF_DEVICE_ID])
+    if not hass.data[DOMAIN]:
+        hass.data.pop(DOMAIN)
     return True
 
 
@@ -102,6 +132,88 @@ def get_entity_config(config_entry, dps_id):
         if entity[CONF_ID] == dps_id:
             return entity
     raise Exception(f"missing entity config for id {dps_id}")
+
+
+
+class TuyaCache:
+    """Cache wrapper for pytuya.TuyaInterface"""
+
+    def __init__(self, config_entry):
+        """Initialize the cache."""
+        self._cached_status = ""
+        self._cached_status_time = 0
+        self._interface = pytuya.TuyaInterface(
+            config_entry[CONF_DEVICE_ID],
+            config_entry[CONF_HOST],
+            config_entry[CONF_LOCAL_KEY],
+            config_entry[CONF_PROTOCOL_VERSION]
+        )
+        for entity in config_entry[CONF_ENTITIES]:
+            # this has to be done in case the device type is type_0d
+            self._interface.add_dps_to_request(entity[CONF_ID])
+        self._friendly_name = config_entry[CONF_FRIENDLY_NAME]
+        self._lock = Lock()
+
+    @property
+    def unique_id(self):
+        """Return unique device identifier."""
+        return self._interface.id
+
+    def __get_status(self):
+        _LOGGER.info("running def __get_status from TuyaCache")
+        for i in range(5):
+            try:
+                status = self._interface.status()
+                print("STATUS OF [{}] IS  [{}]".format(self._interface.address,status))
+                return status
+            except Exception:
+                print(
+                    "Failed to update status of device [{}]".format(
+                        self._interface.address
+                    )
+                )
+                sleep(1.0)
+                if i + 1 == 3:
+                    _LOGGER.error(
+                        "Failed to update status of device %s", self._interface.address
+                    )
+                    #                    return None
+                    raise ConnectionError("Failed to update status .")
+
+    def set_dps(self, state, dps_index):
+        #_LOGGER.info("running def set_dps from cover")
+        """Change the Tuya switch status and clear the cache."""
+        self._cached_status = ""
+        self._cached_status_time = 0
+        for i in range(5):
+            try:
+                #_LOGGER.info("Running a try from def set_dps from cover where state=%s and dps_index=%s", state, dps_index)
+                return self._interface.set_dps(state, dps_index)
+            except Exception:
+                print(
+                    "Failed to set status of device [{}]".format(self._interface.address)
+                )
+                if i + 1 == 3:
+                    _LOGGER.error(
+                        "Failed to set status of device %s", self._interface.address
+                    )
+                    return
+
+    #                    raise ConnectionError("Failed to set status.")
+
+    def status(self):
+        """Get state of Tuya switch and cache the results."""
+        _LOGGER.info("running def status(self) from TuyaCache")
+        self._lock.acquire()
+        try:
+            now = time()
+            if not self._cached_status or now - self._cached_status_time > 15:
+                sleep(0.5)
+                self._cached_status = self.__get_status()
+                self._cached_status_time = time()
+            return self._cached_status
+        finally:
+            self._lock.release()
 
 
 class LocalTuyaEntity(Entity):
@@ -146,11 +258,11 @@ class LocalTuyaEntity(Entity):
 
     def dps(self, dps_index):
         """Return cached value for DPS index."""
-        value = self._status["dps"].get(dps_index)
+        value = self._status["dps"].get(str(dps_index))
         if value is None:
             _LOGGER.warning(
                 "Entity %s is requesting unknown DPS index %s",
-                self.entity_id,
+                self._dps_id,
                 dps_index,
             )
         return value

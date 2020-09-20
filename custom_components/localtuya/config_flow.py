@@ -3,6 +3,9 @@ import logging
 from importlib import import_module
 from itertools import chain
 
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
+
 import voluptuous as vol
 
 from homeassistant import config_entries, core, exceptions
@@ -116,16 +119,16 @@ def strip_dps_values(user_input, dps_strings):
 
 async def validate_input(hass: core.HomeAssistant, data):
     """Validate the user input allows us to connect."""
-    pytuyadevice = pytuya.TuyaDevice(
+    pyTuyaInterface = pytuya.TuyaInterface(
         data[CONF_DEVICE_ID],
         data[CONF_HOST],
         data[CONF_LOCAL_KEY],
+        float(data[CONF_PROTOCOL_VERSION])
     )
-    pytuyadevice.set_version(float(data[CONF_PROTOCOL_VERSION]))
     detected_dps = {}
 
     try:
-        detected_dps = await hass.async_add_executor_job(pytuyadevice.detect_available_dps)
+        detected_dps = await hass.async_add_executor_job(pyTuyaInterface.detect_available_dps)
     except (ConnectionRefusedError, ConnectionResetError):
         raise CannotConnect
     except ValueError:
@@ -223,29 +226,29 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_import(self, user_input):
         """Handle import from YAML."""
+        pp.pprint(user_input)
 
         def _convert_entity(conf):
             converted = {
                 CONF_ID: conf[CONF_ID],
                 CONF_FRIENDLY_NAME: conf[CONF_FRIENDLY_NAME],
-                CONF_PLATFORM: self.platform,
+                CONF_PLATFORM: conf[CONF_PLATFORM],
             }
-            for field in flow_schema(self.platform, self.dps_strings).keys():
-                converted[str(field)] = conf[field]
+#            for field in flow_schema(conf[CONF_PLATFORM], self.dps_strings).keys():
+#                print('ASIOPETIOS: [{}] [{}] '.format(field,conf[field]))
+#                converted[str(field)] = conf[field]
+            print('CONVEENTITIES:')
+            pp.pprint(converted)
             return converted
 
         await self.async_set_unique_id(user_input[CONF_DEVICE_ID])
-        self.platform = user_input[CONF_PLATFORM]
 
-        if len(user_input.get(CONF_SWITCHES, [])) > 0:
-            for switch_conf in user_input[CONF_SWITCHES].values():
-                self.entities.append(_convert_entity(switch_conf))
-        else:
-            self.entities.append(_convert_entity(user_input))
-
-        #print('ENTITIES: [{}] '.format(self.entities))
+        for entity_conf in user_input[CONF_ENTITIES]:
+#            self.platform = user_input[CONF_PLATFORM]
+            self.entities.append(_convert_entity(entity_conf))
+ 
         config = {
-            CONF_FRIENDLY_NAME: f"{user_input[CONF_FRIENDLY_NAME]}",
+            CONF_FRIENDLY_NAME: user_input[CONF_FRIENDLY_NAME],
             CONF_HOST: user_input[CONF_HOST],
             CONF_DEVICE_ID: user_input[CONF_DEVICE_ID],
             CONF_LOCAL_KEY: user_input[CONF_LOCAL_KEY],
@@ -253,6 +256,7 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_YAML_IMPORT: True,
             CONF_ENTITIES: self.entities,
         }
+
         self._abort_if_unique_id_configured(updates=config)
         return self.async_create_entry(title=f"{config[CONF_FRIENDLY_NAME]} (YAML)", data=config)
 
