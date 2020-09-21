@@ -115,7 +115,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
  #       UNSUB_LISTENER: unsub_listener,
  #   }
 
-    tuyaDevice = TuyaCache(entry.data)
+    tuyaDevice = TuyaDevice(entry.data)
     if not tuyaDevice:
         return False
     hass.data.setdefault(DOMAIN, {}).update({entry.data[CONF_DEVICE_ID]: tuyaDevice})
@@ -167,7 +167,7 @@ def get_entity_config(config_entry, dps_id):
 
 
 
-class TuyaCache:
+class TuyaDevice:
     """Cache wrapper for pytuya.TuyaInterface"""
 
     def __init__(self, config_entry):
@@ -192,11 +192,11 @@ class TuyaCache:
         return self._interface.id
 
     def __get_status(self):
-        _LOGGER.info("running def __get_status from TuyaCache")
+        _LOGGER.debug("running def __get_status from TuyaDevice")
         for i in range(5):
             try:
                 status = self._interface.status()
-                print("STATUS OF [{}] IS  [{}]".format(self._interface.address,status))
+#                print("STATUS OF [{}] IS  [{}]".format(self._interface.address,status))
                 return status
             except Exception:
                 print(
@@ -235,7 +235,7 @@ class TuyaCache:
 
     def status(self):
         """Get state of Tuya switch and cache the results."""
-        _LOGGER.info("running def status(self) from TuyaCache")
+        _LOGGER.debug("running def status(self) from TuyaDevice")
         self._lock.acquire()
         try:
             now = time()

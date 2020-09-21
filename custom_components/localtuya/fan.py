@@ -47,9 +47,7 @@ def flow_schema(dps):
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Setup a Tuya fan based on a config entry."""
-    device, entities_to_setup = prepare_setup_entities(
-        config_entry, DOMAIN
-    )
+    device, entities_to_setup = prepare_setup_entities(hass, config_entry, DOMAIN)
     if not entities_to_setup:
         return
 

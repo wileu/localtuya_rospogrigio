@@ -89,7 +89,6 @@ def schema_defaults(schema, dps_list=None, **defaults):
 
         if field.schema in defaults:
             field.default = vol.default_factory(defaults[field])
-
     return copy
 
 
@@ -275,8 +274,6 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_import(self, user_input):
         """Handle import from YAML."""
-        pp.pprint(user_input)
-
         def _convert_entity(conf):
             converted = {
                 CONF_ID: conf[CONF_ID],
@@ -284,10 +281,7 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_PLATFORM: conf[CONF_PLATFORM],
             }
 #            for field in flow_schema(conf[CONF_PLATFORM], self.dps_strings).keys():
-#                print('ASIOPETIOS: [{}] [{}] '.format(field,conf[field]))
 #                converted[str(field)] = conf[field]
-            print('CONVEENTITIES:')
-            pp.pprint(converted)
             return converted
 
         await self.async_set_unique_id(user_input[CONF_DEVICE_ID])
