@@ -75,6 +75,7 @@ def prepare_setup_entities(hass, config_entry, platform):
 
 def import_from_yaml(hass, config, platform):
     """Import configuration from YAML."""
+    print("IMPORT FORM YANL [{}]".format(config))
     config[CONF_PLATFORM] = platform
     hass.async_create_task(
         hass.config_entries.flow.async_init(

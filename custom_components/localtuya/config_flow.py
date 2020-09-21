@@ -89,7 +89,6 @@ def schema_defaults(schema, dps_list=None, **defaults):
 
         if field.schema in defaults:
             field.default = vol.default_factory(defaults[field])
-
     return copy
 
 
@@ -115,6 +114,8 @@ def platform_schema(platform, dps_strings, allow_id=True):
 def flow_schema(platform, dps_strings):
     """Return flow schema for a specific platform."""
     integration_module = ".".join(__name__.split(".")[:-1])
+    print("PLATFORM SCHEMA [{}]".format(integration_module))
+#    pp.pprint(vol.Schema(schema).extend(flow_schema(platform, dps_strings)))
     return import_module("." + platform, integration_module).flow_schema(dps_strings)
 
 
@@ -275,6 +276,7 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_import(self, user_input):
         """Handle import from YAML."""
+        print('ZIO KEN ASI: [{}]'.format(self.dps_strings))
         pp.pprint(user_input)
 
         def _convert_entity(conf):
@@ -283,8 +285,9 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONF_FRIENDLY_NAME: conf[CONF_FRIENDLY_NAME],
                 CONF_PLATFORM: conf[CONF_PLATFORM],
             }
-#            for field in flow_schema(conf[CONF_PLATFORM], self.dps_strings).keys():
-#                print('ASIOPETIOS: [{}] [{}] '.format(field,conf[field]))
+            print('CONVERTING [{}]'.format(conf[CONF_PLATFORM]))
+            for field in flow_schema(conf[CONF_PLATFORM], self.dps_strings).keys():
+                print('OPTIONS: [{}] [{}] '.format(flow_schema(conf[CONF_PLATFORM], self.dps_strings),conf.get(field)))
 #                converted[str(field)] = conf[field]
             print('CONVEENTITIES:')
             pp.pprint(converted)
@@ -294,6 +297,7 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         for entity_conf in user_input[CONF_ENTITIES]:
 #            self.platform = user_input[CONF_PLATFORM]
+            print('FOUND: [{}]'.format(entity_conf))
             self.entities.append(_convert_entity(entity_conf))
  
         config = {
