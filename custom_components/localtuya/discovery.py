@@ -9,7 +9,7 @@ import asyncio
 import logging
 from hashlib import md5
 
-from Cryptodome.Cipher import AES
+from Crypto.Cipher import AES
 
 _LOGGER = logging.getLogger(__name__)
 

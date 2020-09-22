@@ -33,6 +33,7 @@ DEFAULT_ID = "1"
 DEFAULT_PROTOCOL_VERSION = 3.3
 
 UNSUB_LISTENER = "unsub_listener"
+TUYA_DEVICE = "tuya_device"
 
 DEVICE_SCHEMA = {
     vol.Optional(CONF_ICON): cv.icon,  # Deprecated: not used
@@ -69,9 +70,9 @@ def prepare_setup_entities(hass, config_entry, platform):
     if not entities_to_setup:
         return None, None
 
-    tuyaDevice = hass.data[DOMAIN].get(config_entry.data[CONF_DEVICE_ID])
+    tuya_device = hass.data[DOMAIN][config_entry.entry_id][TUYA_DEVICE]
 
-    return tuyaDevice, entities_to_setup
+    return tuya_device, entities_to_setup
 
 
 def import_from_yaml(hass, config, platform):
@@ -113,18 +114,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up LocalTuya integration from a config entry."""
     unsub_listener = entry.add_update_listener(update_listener)
 
-# had to comment out this because it crashes and doesn't proceed further, really don't know what's wrong with this.
-# also using the syntax hass.data.setdefault(DOMAIN, {}).update({entry.data[UNSUB_LISTENER]: unsub_listener}) has the same behavior
-#    hass.data[DOMAIN][entry.entry_id] = {
-#        UNSUB_LISTENER: unsub_listener,
-#    }
-
-    tuyaDevice = TuyaDevice(entry.data)
-    if not tuyaDevice:
+    tuya_device = TuyaDevice(entry.data)
+    if not tuya_device:
         return False
-    hass.data.setdefault(DOMAIN, {}).update({entry.data[CONF_DEVICE_ID]: tuyaDevice})
 
-    pp.pprint(hass.data[DOMAIN])
+    hass.data.setdefault(DOMAIN, {})
+
+    hass.data[DOMAIN][entry.entry_id] = {
+        UNSUB_LISTENER: unsub_listener,
+        TUYA_DEVICE: tuya_device,
+    }
 
     for entity in entry.data[CONF_ENTITIES]:
         platform = entity[CONF_PLATFORM]
@@ -148,12 +147,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
     )
 
 
-    hass.data[DOMAIN].pop(config_entry.data[CONF_DEVICE_ID])
-    if not hass.data[DOMAIN]:
-        hass.data.pop(DOMAIN)
-# this has to be removed, once async_setup_entry has been fixed
-    return True
-
+    hass.data[DOMAIN][entry.entry_id][TUYA_DEVICE]()
     hass.data[DOMAIN][entry.entry_id][UNSUB_LISTENER]()
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
@@ -301,7 +295,7 @@ class LocalTuyaEntity(Entity):
         if value is None:
             _LOGGER.warning(
                 "Entity %s is requesting unknown DPS index %s",
-                self._dps_id,
+                self.name,
                 dps_index,
             )
         return value

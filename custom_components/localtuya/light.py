@@ -71,7 +71,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         lights.append(
             LocaltuyaLight(
                 tuyaDevice,
-                device_config[CONF_FRIENDLY_NAME],
+                config_entry,
                 device_config[CONF_ID],
             )
         )
