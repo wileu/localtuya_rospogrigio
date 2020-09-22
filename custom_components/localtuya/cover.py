@@ -79,8 +79,8 @@ def flow_schema(dps):
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Setup a Tuya cover based on a config entry."""
-    tuyainterface, entities_to_setup = prepare_setup_entities(
-        config_entry, DOMAIN
+    tuyaDevice, entities_to_setup = prepare_setup_entities(
+        hass, config_entry, DOMAIN
     )
     if not entities_to_setup:
         return
@@ -89,7 +89,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
     for device_config in entities_to_setup:
         covers.append(
             LocaltuyaCover(
-                TuyaDevice(tuyainterface, config_entry.data[CONF_FRIENDLY_NAME]),
+                tuyaDevice,
                 config_entry,
                 device_config[CONF_ID],
             )
@@ -112,8 +112,11 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
         switchid,
         **kwargs,
     ):
-        #_LOGGER.info("running def __init__ of LocaltuyaCover(CoverEntity) with self=%s device=%s name=%s friendly_name=%s icon=%s switchid=%s open_cmd=%s close_cmd=%s stop_cmd=%s", self, device, name, friendly_name, icon, switchid, open_cmd, close_cmd, stop_cmd)
         super().__init__(device, config_entry, switchid, **kwargs)
+        self._config[CONF_OPEN_CMD] = "on"
+        self._config[CONF_CLOSE_CMD] = "off"
+        self._config[CONF_STOP_CMD] = "stop"
+        _LOGGER.info("running def __init__ of LocaltuyaCover(CoverEntity) with open_cmd=%s close_cmd=%s stop_cmd=%s", self._config[CONF_OPEN_CMD], self._config[CONF_CLOSE_CMD], self._config[CONF_STOP_CMD])
         self._state = None
         self._position = 50
         print(
@@ -208,7 +211,7 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
 
     def stop_cover(self, **kwargs):
         """Stop the cover."""
-        _LOGGER.debug("Laudebugching command %s to cover ", self._config[CONF_STOP_CMD])
+        _LOGGER.debug("Launching command %s to cover ", self._config[CONF_STOP_CMD])
         self._device.set_dps(self._config[CONF_STOP_CMD], self._dps_id)
 
     def status_updated(self):

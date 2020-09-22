@@ -79,7 +79,6 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend(BASE_PLATFORM_SCHEMA).extend(
         vol.Optional(CONF_CURRENT, default="-1"): cv.string,
         vol.Optional(CONF_CURRENT_CONSUMPTION, default="-1"): cv.string,
         vol.Optional(CONF_VOLTAGE, default="-1"): cv.string,
-        vol.Optional(CONF_SWITCHES, default={}): vol.Schema({cv.slug: SWITCH_SCHEMA}),
     }
 )
 
@@ -95,22 +94,17 @@ def flow_schema(dps):
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Setup a Tuya switch based on a config entry."""
-    tuyainterface, entities_to_setup = prepare_setup_entities(config_entry, DOMAIN)
+    tuyaDevice, entities_to_setup = prepare_setup_entities(
+        hass, config_entry, DOMAIN
+    )
     if not entities_to_setup:
         return
 
     switches = []
     for device_config in entities_to_setup:
-        if device_config.get(CONF_CURRENT, "-1") != "-1":
-            tuyainterface.add_dps_to_request(device_config.get(CONF_CURRENT))
-        if device_config.get(CONF_CURRENT_CONSUMPTION, "-1") != "-1":
-            tuyainterface.add_dps_to_request(device_config.get(CONF_CURRENT_CONSUMPTION))
-        if device_config.get(CONF_VOLTAGE, "-1") != "-1":
-            tuyainterface.add_dps_to_request(device_config.get(CONF_VOLTAGE))
-
         switches.append(
             LocaltuyaSwitch(
-                TuyaDevice(tuyainterface, config_entry.data[CONF_FRIENDLY_NAME]),
+                tuyaDevice,
                 config_entry,
                 device_config[CONF_ID],
             )
