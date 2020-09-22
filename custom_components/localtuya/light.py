@@ -60,19 +60,18 @@ def flow_schema(dps):
 
 async def async_setup_entry(hass, config_entry, async_add_entities):
     """Setup a Tuya light based on a config entry."""
-    tuyainterface, entities_to_setup = prepare_setup_entities(config_entry, DOMAIN)
+    tuyaDevice, entities_to_setup = prepare_setup_entities(
+        hass, config_entry, DOMAIN
+    )
     if not entities_to_setup:
         return
 
     lights = []
     for device_config in entities_to_setup:
-        # this has to be done in case the device type is type_0d
-        tuyainterface.add_dps_to_request(device_config[CONF_ID])
-
         lights.append(
             LocaltuyaLight(
-                TuyaCache(tuyainterface, config_entry.data[CONF_FRIENDLY_NAME]),
-                config_entry,
+                tuyaDevice,
+                device_config[CONF_FRIENDLY_NAME],
                 device_config[CONF_ID],
             )
         )

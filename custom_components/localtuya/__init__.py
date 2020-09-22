@@ -34,6 +34,17 @@ DEFAULT_PROTOCOL_VERSION = 3.3
 
 UNSUB_LISTENER = "unsub_listener"
 
+DEVICE_SCHEMA = {
+    vol.Optional(CONF_ICON): cv.icon,  # Deprecated: not used
+    vol.Required(CONF_HOST): cv.string,
+    vol.Required(CONF_DEVICE_ID): cv.string,
+    vol.Required(CONF_LOCAL_KEY): cv.string,
+    vol.Required(CONF_FRIENDLY_NAME): cv.string,
+    vol.Required(CONF_PROTOCOL_VERSION, default=DEFAULT_PROTOCOL_VERSION): vol.Coerce(
+        float
+    ),
+}
+
 BASE_PLATFORM_SCHEMA = {
     vol.Optional(CONF_ICON): cv.icon,  # Deprecated: not used
     vol.Required(CONF_HOST): cv.string,
@@ -48,8 +59,8 @@ BASE_PLATFORM_SCHEMA = {
 }
 
 
-def prepare_setup_entities(config_entry, platform):
-    """Prepare ro setup entities for a platform."""
+def prepare_setup_entities(hass, config_entry, platform):
+    """Prepare to setup entities for a platform."""
     entities_to_setup = [
         entity
         for entity in config_entry.data[CONF_ENTITIES]
@@ -58,22 +69,14 @@ def prepare_setup_entities(config_entry, platform):
     if not entities_to_setup:
         return None, None
 
-    tuyainterface = pytuya.TuyaInterface(
-        config_entry.data[CONF_DEVICE_ID],
-        config_entry.data[CONF_HOST],
-        config_entry.data[CONF_LOCAL_KEY],
-        float(config_entry.data[CONF_PROTOCOL_VERSION]),
-    )
+    tuyaDevice = hass.data[DOMAIN].get(config_entry.data[CONF_DEVICE_ID])
 
-    for interface_config in entities_to_setup:
-        # this has to be done in case the device type is type_0d
-        tuyainterface.add_dps_to_request(interface_config[CONF_ID])
-
-    return tuyainterface, entities_to_setup
+    return tuyaDevice, entities_to_setup
 
 
 def import_from_yaml(hass, config, platform):
     """Import configuration from YAML."""
+    print("IMPORT FORM YANL [{}]".format(config))
     config[CONF_PLATFORM] = platform
     hass.async_create_task(
         hass.config_entries.flow.async_init(
@@ -86,7 +89,23 @@ def import_from_yaml(hass, config, platform):
 
 async def async_setup(hass: HomeAssistant, config: dict):
     """Set up the LocalTuya integration component."""
-    hass.data.setdefault(DOMAIN, {})
+    if DOMAIN not in config:
+        return True
+
+    hosts = config[DOMAIN]
+    if not hosts:
+        print("Strange....")
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": SOURCE_IMPORT}
+            )
+        )
+    for host_config in hosts:
+        hass.async_create_task(
+            hass.config_entries.flow.async_init(
+                DOMAIN, context={"source": SOURCE_IMPORT}, data=host_config
+            )
+        )
     return True
 
 
@@ -94,11 +113,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Set up LocalTuya integration from a config entry."""
     unsub_listener = entry.add_update_listener(update_listener)
 
-    hass.data[DOMAIN][entry.entry_id] = {
-        UNSUB_LISTENER: unsub_listener,
-    }
+# had to comment out this because it crashes and doesn't proceed further, really don't know what's wrong with this.
+# also using the syntax hass.data.setdefault(DOMAIN, {}).update({entry.data[UNSUB_LISTENER]: unsub_listener}) has the same behavior
+#    hass.data[DOMAIN][entry.entry_id] = {
+#        UNSUB_LISTENER: unsub_listener,
+#    }
 
-    for platform in set(entity[CONF_PLATFORM] for entity in entry.data[CONF_ENTITIES]):
+    tuyaDevice = TuyaDevice(entry.data)
+    if not tuyaDevice:
+        return False
+    hass.data.setdefault(DOMAIN, {}).update({entry.data[CONF_DEVICE_ID]: tuyaDevice})
+
+    pp.pprint(hass.data[DOMAIN])
+
+    for entity in entry.data[CONF_ENTITIES]:
+        platform = entity[CONF_PLATFORM]
         hass.async_create_task(
             hass.config_entries.async_forward_entry_setup(entry, platform)
         )
@@ -118,10 +147,16 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry):
         )
     )
 
+
+    hass.data[DOMAIN].pop(config_entry.data[CONF_DEVICE_ID])
+    if not hass.data[DOMAIN]:
+        hass.data.pop(DOMAIN)
+# this has to be removed, once async_setup_entry has been fixed
+    return True
+
     hass.data[DOMAIN][entry.entry_id][UNSUB_LISTENER]()
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
-
     return True
 
 
@@ -142,12 +177,20 @@ def get_entity_config(config_entry, dps_id):
 class TuyaDevice:
     """Cache wrapper for pytuya.TuyaInterface"""
 
-    def __init__(self, interface, friendly_name):
+    def __init__(self, config_entry):
         """Initialize the cache."""
         self._cached_status = ""
         self._cached_status_time = 0
-        self._interface = interface
-        self._friendly_name = friendly_name
+        self._interface = pytuya.TuyaInterface(
+            config_entry[CONF_DEVICE_ID],
+            config_entry[CONF_HOST],
+            config_entry[CONF_LOCAL_KEY],
+            config_entry[CONF_PROTOCOL_VERSION]
+        )
+        for entity in config_entry[CONF_ENTITIES]:
+            # this has to be done in case the device type is type_0d
+            self._interface.add_dps_to_request(entity[CONF_ID])
+        self._friendly_name = config_entry[CONF_FRIENDLY_NAME]
         self._lock = Lock()
 
     @property
@@ -258,7 +301,7 @@ class LocalTuyaEntity(Entity):
         if value is None:
             _LOGGER.warning(
                 "Entity %s is requesting unknown DPS index %s",
-                self.entity_id,
+                self._dps_id,
                 dps_index,
             )
         return value
