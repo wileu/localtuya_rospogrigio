@@ -64,6 +64,13 @@ class LocaltuyaSwitch(LocalTuyaEntity, SwitchEntity):
     ):
         """Initialize the Tuya switch."""
         super().__init__(device, config_entry, switchid, **kwargs)
+
+        if self.has_config(CONF_VOLTAGE):
+            device._interface.add_dps_to_request(self._config[CONF_VOLTAGE])
+        if self.has_config(CONF_CURRENT):
+            device._interface.add_dps_to_request(self._config[CONF_CURRENT])
+        if self.has_config(CONF_CURRENT_CONSUMPTION):
+            device._interface.add_dps_to_request(self._config[CONF_CURRENT_CONSUMPTION])
         self._state = None
         print("Initialized switch [{}]".format(self.name))
 

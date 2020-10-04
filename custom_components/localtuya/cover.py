@@ -88,10 +88,15 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
     ):
         """Initialize a new LocaltuyaCover."""
         super().__init__(device, config_entry, switchid, **kwargs)
+
         self._state = None
         self._current_cover_position = None
         self._open_cmd = self._config[CONF_OPENCLOSE_CMDS].split("_")[0]
         self._close_cmd = self._config[CONF_OPENCLOSE_CMDS].split("_")[1]
+        if self.has_config(CONF_CURRENT_POSITION_DP):
+            device._interface.add_dps_to_request(self._config[CONF_CURRENT_POSITION_DP])
+        if self.has_config(CONF_SET_POSITION_DP):
+            device._interface.add_dps_to_request(self._config[CONF_SET_POSITION_DP])
         print("Initialized cover [{}]".format(self.name))
 
     @property
