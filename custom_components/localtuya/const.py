@@ -23,9 +23,20 @@ CONF_SPAN_TIME = "span_time"
 # sensor
 CONF_SCALING = "scaling"
 
+# climate
+CONF_TARGET_TEMPERATURE_DP = "target_temperature_dp"
+CONF_CURRENT_TEMPERATURE_DP = "current_temperature_dp"
+CONF_MAX_TEMP_DP = "max_temperature_dp"
+CONF_MIN_TEMP_DP = "min_temperature_dp"
+CONF_FAN_MODE_DP = "fan_mode_dp"
+CONF_HVAC_MODE_DP = "hvac_mode_dp"
+CONF_PRECISION = "precision"
+CONF_CELSIUS = "celsius"
+CONF_FAHRENHEIT = "fahrenheit"
+
 DOMAIN = "localtuya"
 
 # Platforms in this list must support config flows
-PLATFORMS = ["binary_sensor", "cover", "fan", "light", "sensor", "switch"]
+PLATFORMS = ["binary_sensor", "climate", "cover", "fan", "light", "sensor", "switch"]
 
 TUYA_DEVICE = "tuya_device"
