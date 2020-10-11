@@ -62,9 +62,10 @@
                     "target_temperature_dp": "Target Temperature",
                     "hvac_mode_dp": "HVAC Mode",
                     "fan_mode_dp": "Fan Mode (optional)",
+                    "temperature_step": "Temperature Step (optional)",
                     "max_temperature_dp": "Max Temperature (optional)",
                     "min_temperature_dp": "Min Temperature (optional)",
-                    "precision": "Precision",
+                    "precision": "Precision (optional, for DPs values)",
                     "temperature_unit": "Temperature Unit (optional)"
                 }
             }
@@ -107,9 +108,10 @@
                     "target_temperature_dp": "Target Temperature",
                     "hvac_mode_dp": "HVAC Mode",
                     "fan_mode_dp": "Fan Mode (optional)",
+                    "temperature_step": "Temperature Step (optional)",
                     "max_temperature_dp": "Max Temperature (optional)",
                     "min_temperature_dp": "Min Temperature (optional)",
-                    "precision": "Precision",
+                    "precision": "Precision (optional, for DPs values)",
                     "temperature_unit": "Temperature Unit (optional)"
                 }
             },
