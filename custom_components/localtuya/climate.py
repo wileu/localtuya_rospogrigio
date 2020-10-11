@@ -41,13 +41,15 @@ from .const import (
     CONF_MIN_TEMP_DP,
     CONF_FAN_MODE_DP,
     CONF_HVAC_MODE_DP,
+    CONF_TEMPERATURE_STEP,
     CONF_PRECISION,
-    CONF_CELSIUS,
-    CONF_FAHRENHEIT,
 )
 from .common import LocalTuyaEntity, async_setup_entry
 
 _LOGGER = logging.getLogger(__name__)
+
+TEMPERATURE_CELSIUS = "celsius"
+TEMPERATURE_FAHRENHEIT = "fahrenheit"
 
 
 def flow_schema(dps):
@@ -55,15 +57,18 @@ def flow_schema(dps):
     return {
         vol.Optional(CONF_TARGET_TEMPERATURE_DP): vol.In(dps),
         vol.Optional(CONF_CURRENT_TEMPERATURE_DP): vol.In(dps),
+        vol.Optional(CONF_TEMPERATURE_STEP): vol.In(
+            [PRECISION_WHOLE, PRECISION_HALVES, PRECISION_TENTHS]
+        ),
         vol.Optional(CONF_HVAC_MODE_DP): vol.In(dps),
         vol.Optional(CONF_FAN_MODE_DP): vol.In(dps),
         vol.Optional(CONF_MAX_TEMP_DP): vol.In(dps),
         vol.Optional(CONF_MIN_TEMP_DP): vol.In(dps),
-        vol.Optional(CONF_PRECISION, default=PRECISION_TENTHS): vol.In(
+        vol.Optional(CONF_PRECISION): vol.In(
             [PRECISION_WHOLE, PRECISION_HALVES, PRECISION_TENTHS]
         ),
-        vol.Optional(CONF_TEMPERATURE_UNIT, default=CONF_CELSIUS): vol.In(
-            [CONF_CELSIUS, CONF_FAHRENHEIT]
+        vol.Optional(CONF_TEMPERATURE_UNIT): vol.In(
+            [TEMPERATURE_CELSIUS, TEMPERATURE_FAHRENHEIT]
         ),
     }
 
@@ -85,7 +90,9 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
         self._current_temperature = None
         self._hvac_mode = None
         self._preset_mode = None
-        self._precision = self._config[CONF_PRECISION]
+        self._precision = PRECISION_TENTHS
+        if self.has_config(CONF_PRECISION):
+            self._precision = self._config[CONF_PRECISION]
         print("Initialized climate [{}]".format(self.name))
 
     @property
@@ -103,13 +110,14 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
     @property
     def precision(self):
         """Return the precision of the system."""
-        return self._config[CONF_PRECISION]
+        return self._precision
 
     @property
     def temperature_unit(self):
         """Return the unit of measurement used by the platform."""
-        if self._config[CONF_TEMPERATURE_UNIT] == CONF_FAHRENHEIT:
-            return TEMP_FAHRENHEIT
+        if self.has_config(CONF_TEMPERATURE_UNIT):
+            if self._config[CONF_TEMPERATURE_UNIT] == TEMPERATURE_FAHRENHEIT:
+                return TEMP_FAHRENHEIT
         return TEMP_CELSIUS
 
     @property
@@ -135,7 +143,9 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
     @property
     def target_temperature_step(self):
         """Return the supported step of target temperature."""
-        return self._config[CONF_PRECISION]
+        if self.has_config(CONF_TEMPERATURE_STEP):
+            self._precision = self._config[CONF_TEMPERATURE_STEP]
+        return PRECISION_HALVES
 
     @property
     def fan_mode(self):
@@ -168,21 +178,15 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
     def min_temp(self):
         """Return the minimum temperature."""
         if self.has_config(CONF_MIN_TEMP_DP):
-            return self.dps(self._config[CONF_MIN_TEMP_DP])
+            return self.dps_conf(CONF_MIN_TEMP_DP)
         return DEFAULT_MIN_TEMP
 
     @property
     def max_temp(self):
         """Return the maximum temperature."""
         if self.has_config(CONF_MAX_TEMP_DP):
-            return self.dps(self._config[CONF_MAX_TEMP_DP])
+            return self.dps_conf(CONF_MAX_TEMP_DP)
         return DEFAULT_MAX_TEMP
-
-    @property
-    def is_opening(self):
-        """Return if climate is opening."""
-        state = self._state
-        return state == self._open_cmd
 
     def status_updated(self):
         """Device status was updated."""
@@ -190,14 +194,12 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
 
         if self.has_config(CONF_TARGET_TEMPERATURE_DP):
             self._target_temperature = (
-                self.dps(self._config[CONF_TARGET_TEMPERATURE_DP])
-                * self._config[CONF_PRECISION]
+                self.dps_conf(CONF_TARGET_TEMPERATURE_DP) * self._precision
             )
 
         if self.has_config(CONF_CURRENT_TEMPERATURE_DP):
             self._current_temperature = (
-                self.dps(self._config[CONF_CURRENT_TEMPERATURE_DP])
-                * self._config[CONF_PRECISION]
+                self.dps_conf(CONF_CURRENT_TEMPERATURE_DP) * self._precision
             )
 
         hvac_mode = HVAC_MODE_OFF
