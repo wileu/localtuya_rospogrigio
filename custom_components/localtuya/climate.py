@@ -90,9 +90,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
         self._current_temperature = None
         self._hvac_mode = None
         self._preset_mode = None
-        self._precision = PRECISION_TENTHS
-        if self.has_config(CONF_PRECISION):
-            self._precision = self._config[CONF_PRECISION]
+        self._precision = self._config.get(CONF_PRECISION, PRECISION_TENTHS)
         print("Initialized climate [{}]".format(self.name))
 
     @property
@@ -143,9 +141,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
     @property
     def target_temperature_step(self):
         """Return the supported step of target temperature."""
-        if self.has_config(CONF_TEMPERATURE_STEP):
-            self._precision = self._config[CONF_TEMPERATURE_STEP]
-        return PRECISION_HALVES
+        return self._config.get(CONF_TEMPERATURE_STEP, PRECISION_HALVES)
 
     @property
     def fan_mode(self):
@@ -204,7 +200,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
 
         hvac_mode = HVAC_MODE_OFF
         if self.has_config(CONF_HVAC_MODE_DP):
-            hvac_mode = self.dps(self._config[CONF_HVAC_MODE_DP])
+            hvac_mode = self.dps_conf(CONF_HVAC_MODE_DP)
 
         if self._state is False:
             self._hvac_mode = HVAC_MODE_OFF
