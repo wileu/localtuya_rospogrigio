@@ -50,6 +50,9 @@ _LOGGER = logging.getLogger(__name__)
 
 TEMPERATURE_CELSIUS = "celsius"
 TEMPERATURE_FAHRENHEIT = "fahrenheit"
+DEFAULT_TEMPERATURE_UNIT = TEMPERATURE_CELSIUS
+DEFAULT_PRECISION = PRECISION_TENTHS
+DEFAULT_TEMPERATURE_STEP = PRECISION_HALVES
 
 
 def flow_schema(dps):
@@ -90,7 +93,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
         self._current_temperature = None
         self._hvac_mode = None
         self._preset_mode = None
-        self._precision = self._config.get(CONF_PRECISION, PRECISION_TENTHS)
+        self._precision = self._config.get(CONF_PRECISION, DEFAULT_PRECISION)
         print("Initialized climate [{}]".format(self.name))
 
     @property
@@ -113,9 +116,11 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
     @property
     def temperature_unit(self):
         """Return the unit of measurement used by the platform."""
-        if self.has_config(CONF_TEMPERATURE_UNIT):
-            if self._config[CONF_TEMPERATURE_UNIT] == TEMPERATURE_FAHRENHEIT:
-                return TEMP_FAHRENHEIT
+        if (
+            self._config.get(CONF_TEMPERATURE_UNIT, DEFAULT_TEMPERATURE_UNIT)
+            == TEMPERATURE_FAHRENHEIT
+        ):
+            return TEMP_FAHRENHEIT
         return TEMP_CELSIUS
 
     @property
@@ -141,7 +146,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
     @property
     def target_temperature_step(self):
         """Return the supported step of target temperature."""
-        return self._config.get(CONF_TEMPERATURE_STEP, PRECISION_HALVES)
+        return self._config.get(CONF_TEMPERATURE_STEP, DEFAULT_TEMPERATURE_STEP)
 
     @property
     def fan_mode(self):
@@ -157,7 +162,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
         """Set new target temperature."""
         if ATTR_TEMPERATURE in kwargs and self.has_config(CONF_TARGET_TEMPERATURE_DP):
             temperature = kwargs[ATTR_TEMPERATURE] / self._precision
-            self._device.set_dps(temperature, CONF_TARGET_TEMPERATURE_DP)
+            self._device.set_dps(temperature, self._config[CONF_TARGET_TEMPERATURE_DP])
 
     def set_fan_mode(self, fan_mode):
         """Set new target fan mode."""
@@ -208,9 +213,6 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
             self._hvac_mode = HVAC_MODE_AUTO
         else:
             self._hvac_mode = HVAC_MODE_HEAT
-
-
-#        print("Status::: state [{}] mode [{}]".format(self._state, self._hvac_mode))
 
 
 async_setup_entry = partial(async_setup_entry, DOMAIN, LocaltuyaClimate, flow_schema)
