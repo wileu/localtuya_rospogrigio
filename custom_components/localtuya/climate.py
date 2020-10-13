@@ -161,7 +161,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
     def set_temperature(self, **kwargs):
         """Set new target temperature."""
         if ATTR_TEMPERATURE in kwargs and self.has_config(CONF_TARGET_TEMPERATURE_DP):
-            temperature = kwargs[ATTR_TEMPERATURE] / self._precision
+            temperature = round(kwargs[ATTR_TEMPERATURE] / self._precision)
             self._device.set_dps(temperature, self._config[CONF_TARGET_TEMPERATURE_DP])
 
     def set_fan_mode(self, fan_mode):
@@ -173,7 +173,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
         on_off = hvac_mode != HVAC_MODE_OFF
         self._device.set_dps(on_off, self._dps_id)
         if self.has_config(CONF_HVAC_MODE_DP):
-            self._device.set_dps(hvac_mode, CONF_HVAC_MODE_DP)
+            self._device.set_dps(hvac_mode, self._config[CONF_HVAC_MODE_DP])
 
     @property
     def min_temp(self):
