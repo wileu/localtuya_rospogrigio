@@ -1,13 +1,17 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Device has already been configured."
+            "already_configured": "Device has already been configured.",
+            "exit_debug": "Leaving debug mode."
         },
         "error": {
             "cannot_connect": "Cannot connect to device. Verify that address is correct and try again.",
             "invalid_auth": "Failed to authenticate with device. Verify that device id and local key are correct.",
             "unknown": "An unknown error occurred. See log for details.",
-            "entity_already_configured": "Entity with this ID has already been configured."
+            "entity_already_configured": "Entity with this ID has already been configured.",
+            "discovery_failed": "Failed to discover devices. You can still add a device manually.",
+            "fetch_dps_failed": "Failed to fetch datapoints. See log for details.",
+            "set_dp_failed": "Failed to set datapoint. See log for details."
         },
         "step": {
             "user": {
@@ -25,7 +29,8 @@
                     "host": "Host",
                     "device_id": "Device ID",
                     "local_key": "Local key",
-                    "protocol_version": "Protocol Version"
+                    "protocol_version": "Protocol Version",
+                    "debug": "Enable debug mode"
                 }
             },
             "pick_entity_type": {
@@ -60,6 +65,16 @@
                     "brightness_lower": "Brightness Lower Value",
                     "brightness_upper": "Brightness Upper Value",
                     "color_temp": "Color Temperature"
+                }
+            },
+            "debug": {
+                "title": "Debug",
+                "description": "You can manually alter the value of a datapoint here. Current values for all datapoints:\n\n{dps}",
+                "data": {
+                    "action": "Action",
+                    "datapoint": "Datapoint",
+                    "data_type": "Data Type",
+                    "value": "Value"
                 }
             }
         }

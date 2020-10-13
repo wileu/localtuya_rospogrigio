@@ -28,11 +28,30 @@ from .discovery import discover
 
 _LOGGER = logging.getLogger(__name__)
 
+DISCOVER_TIMEOUT = 6.0
+
+ACTION_SET_DPS = "set_dp"
+ACTION_RELOAD_DPS = "reload_dps"
+ACTION_EXIT_DEBUG = "exit_debug"
+
+CONF_ACTION = "action"
+CONF_DATAPOINT = "datapoint"
+CONF_DATA_TYPE = "data_type"
+CONF_VALUE = "value"
+CONF_DEBUG = "debug"
+
 PLATFORM_TO_ADD = "platform_to_add"
 NO_ADDITIONAL_PLATFORMS = "no_additional_platforms"
 DISCOVERED_DEVICE = "discovered_device"
 
 CUSTOM_DEVICE = "..."
+
+DEBUG_TYPES_CONVERSIONS = {
+    "int": int,
+    "str": str,
+    "bool": lambda x: x.lower() == "true",
+    "float": float,
+}
 
 BASIC_INFO_SCHEMA = vol.Schema(
     {
@@ -41,6 +60,7 @@ BASIC_INFO_SCHEMA = vol.Schema(
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_DEVICE_ID): str,
         vol.Required(CONF_PROTOCOL_VERSION, default="3.3"): vol.In(["3.1", "3.3"]),
+        vol.Optional(CONF_DEBUG, default=False): bool,
     }
 )
 
@@ -66,6 +86,20 @@ DEVICE_SCHEMA = vol.Schema(
 PICK_ENTITY_SCHEMA = vol.Schema(
     {vol.Required(PLATFORM_TO_ADD, default=PLATFORMS[0]): vol.In(PLATFORMS)}
 )
+
+
+def debug_schema(dps):
+    """Create schema for debug mode."""
+    return vol.Schema(
+        {
+            vol.Required(CONF_ACTION, default=ACTION_SET_DPS): vol.In(
+                [ACTION_SET_DPS, ACTION_RELOAD_DPS, ACTION_EXIT_DEBUG]
+            ),
+            vol.Optional(CONF_DATAPOINT): vol.In(dps),
+            vol.Optional(CONF_DATA_TYPE): vol.In(["int", "float", "str", "bool"]),
+            vol.Optional(CONF_VALUE): str,
+        }
+    )
 
 
 def user_schema(devices):
@@ -155,20 +189,16 @@ def config_schema():
     )
 
 
-async def validate_input(hass: core.HomeAssistant, data):
-    """Validate the user input allows us to connect."""
-    detected_dps = {}
-
-    interface = None
+async def _tuya_command(hass: core.HomeAssistant, data, func, *args):
+    """Execute a Tuya command.."""
+    interface = await pytuya.connect(
+        data[CONF_HOST],
+        data[CONF_DEVICE_ID],
+        data[CONF_LOCAL_KEY],
+        float(data[CONF_PROTOCOL_VERSION]),
+    )
     try:
-        interface = await pytuya.connect(
-            data[CONF_HOST],
-            data[CONF_DEVICE_ID],
-            data[CONF_LOCAL_KEY],
-            float(data[CONF_PROTOCOL_VERSION]),
-        )
-
-        detected_dps = await interface.detect_available_dps()
+        return await getattr(interface, func)(*args)
     except (ConnectionRefusedError, ConnectionResetError):
         raise CannotConnect
     except ValueError:
@@ -177,6 +207,10 @@ async def validate_input(hass: core.HomeAssistant, data):
         if interface:
             interface.close()
 
+
+async def validate_input(hass: core.HomeAssistant, data):
+    """Validate the user input allows us to connect."""
+    detected_dps = await _tuya_command(hass, data, "detect_available_dps")
     return dps_string_list(detected_dps)
 
 
@@ -231,9 +265,11 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(user_input[CONF_DEVICE_ID])
             self._abort_if_unique_id_configured()
 
+            self.basic_info = user_input
             try:
-                self.basic_info = user_input
                 self.dps_strings = await validate_input(self.hass, user_input)
+                if user_input.get(CONF_DEBUG):
+                    return await self.async_step_debug()
                 return await self.async_step_pick_entity_type()
             except CannotConnect:
                 errors["base"] = "cannot_connect"
@@ -310,6 +346,40 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._abort_if_unique_id_configured(updates=user_input)
         return self.async_create_entry(
             title=f"{user_input[CONF_FRIENDLY_NAME]} (YAML)", data=user_input
+        )
+
+    async def async_step_debug(self, user_input=None):
+        """Handle debug mode."""
+        errors = {}
+        if user_input is not None:
+            action = user_input[CONF_ACTION]
+            if action == ACTION_SET_DPS:
+                try:
+                    type_convert = DEBUG_TYPES_CONVERSIONS[user_input[CONF_DATA_TYPE]]
+                    value = type_convert(user_input[CONF_VALUE])
+                    dp = user_input[CONF_DATAPOINT].split(" ")[0]
+                    await _tuya_command(
+                        self.hass, self.basic_info, "set_dps", value, dp
+                    )
+                except Exception:  # pylint: disable=broad-except
+                    _LOGGER.exception(f"failed to set datapoint {dp}={value}")
+                    errors["base"] = "set_dp_failed"
+
+            elif action == ACTION_EXIT_DEBUG:
+                return self.async_abort(reason="exit_debug")
+
+        # Always try to refresh datapoints after doing something
+        try:
+            self.dps_strings = await validate_input(self.hass, self.basic_info)
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("failed to fetch datapoints")
+            errors["base"] = "fetch_dps_failed"
+
+        return self.async_show_form(
+            step_id="debug",
+            data_schema=debug_schema(self.dps_strings),
+            errors=errors,
+            description_placeholders={"dps": ", ".join(self.dps_strings)},
         )
 
 
