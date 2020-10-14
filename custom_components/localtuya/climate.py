@@ -158,7 +158,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
         """Return the list of available fan modes."""
         return NotImplementedError()
 
-    def set_temperature(self, **kwargs):
+    async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
         if ATTR_TEMPERATURE in kwargs and self.has_config(CONF_TARGET_TEMPERATURE_DP):
             temperature = round(kwargs[ATTR_TEMPERATURE] / self._precision)
@@ -168,7 +168,7 @@ class LocaltuyaClimate(LocalTuyaEntity, ClimateEntity):
         """Set new target fan mode."""
         return NotImplementedError()
 
-    def set_hvac_mode(self, hvac_mode):
+    async def async_set_hvac_mode(self, hvac_mode):
         """Set new target operation mode."""
         on_off = hvac_mode != HVAC_MODE_OFF
         self._device.set_dps(on_off, self._dps_id)
