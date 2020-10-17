@@ -4,9 +4,11 @@ Entirely based on tuya-convert.py from tuya-convert:
 
 https://github.com/ct-Open-Source/tuya-convert/blob/master/scripts/tuya-discovery.py
 """
+import sys
 import json
 import asyncio
 import logging
+from datetime import datetime
 from hashlib import md5
 
 from cryptography.hazmat.backends import default_backend
@@ -31,9 +33,9 @@ def decrypt_udp(message):
 class TuyaDiscovery(asyncio.DatagramProtocol):
     """Datagram handler listening for Tuya broadcast messages."""
 
-    def __init__(self, found_devices):
+    def __init__(self, device_id):
         """Initialize a new TuyaDiscovery instance."""
-        self.found_devices = found_devices
+        self.device_id = device_id
 
     def datagram_received(self, data, addr):
         """Handle received broadcast message."""
@@ -44,17 +46,15 @@ class TuyaDiscovery(asyncio.DatagramProtocol):
             data = data.decode()
 
         decoded = json.loads(data)
-        if decoded.get("ip") not in self.found_devices:
-            self.found_devices[decoded.get("ip")] = decoded
-            _LOGGER.debug("Discovered device: %s", decoded)
+        if decoded.get("gwId") == self.device_id:
+            print(datetime.now(), decoded)
 
 
-async def discover(timeout, loop):
+async def discover(timeout, device_id, loop):
     """Discover and return Tuya devices on the network."""
-    found_devices = {}
 
     def proto_factory():
-        return TuyaDiscovery(found_devices)
+        return TuyaDiscovery(device_id)
 
     listener = loop.create_datagram_endpoint(
         proto_factory, local_addr=("0.0.0.0", 6666)
@@ -72,14 +72,11 @@ async def discover(timeout, loop):
         for transport, _ in listeners:
             transport.close()
 
-    return found_devices
-
 
 def main():
     """Run discovery and print result."""
     loop = asyncio.get_event_loop()
-    res = loop.run_until_complete(discover(5, loop))
-    print(res)
+    loop.run_until_complete(discover(10000000000, sys.argv[1], loop))
 
 
 if __name__ == "__main__":
