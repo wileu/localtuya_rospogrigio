@@ -228,15 +228,20 @@ class MessageDispatcher:
                 break
 
             # length includes payload length, retcode, crc and suffix
-            payload_length = length - 4 - struct.calcsize(MESSAGE_END_FMT)
-            payload = self.buffer[header_len : header_len + payload_length]
+            if (retcode & 0xFfffff00) != 0:
+                payload_start = header_len - 4
+                payload_length = length - struct.calcsize(MESSAGE_END_FMT)
+            else:
+                payload_start = header_len
+                payload_length = length - 4 - struct.calcsize(MESSAGE_END_FMT)
+            payload = self.buffer[payload_start : payload_start + payload_length]
 
             crc, _ = struct.unpack_from(
                 MESSAGE_END_FMT,
-                self.buffer[header_len + payload_length : header_len + length],
+                self.buffer[payload_start + payload_length : payload_start + length],
             )
 
-            self.buffer = self.buffer[header_len + length - 4 :]
+            self.buffer = self.buffer[payload_start + length :]
             self._dispatch(TuyaMessage(seqno, cmd, retcode, payload, crc))
 
     def _dispatch(self, msg):
@@ -258,7 +263,7 @@ class MessageDispatcher:
         else:
             self.log.debug(
                 "Got message type %d for unknown listener %d: %s",
-                msg.command,
+                msg.cmd,
                 msg.seqno,
                 msg,
             )
@@ -459,7 +464,7 @@ class TuyaProtocol(asyncio.Protocol):
             try:
                 data = await self.status()
             except Exception as e:
-                self.log.warning("Failed to get status: %s", e)
+                self.log.exception("Failed to get status: %s", e)
                 raise
             if "dps" in data:
                 self.dps_cache.update(data["dps"])
@@ -481,6 +486,8 @@ class TuyaProtocol(asyncio.Protocol):
 
         if not payload:
             payload = "{}"
+        elif payload.startswith(b"{"):
+            payload = payload
         elif payload.startswith(PROTOCOL_VERSION_BYTES_31):
             payload = payload[len(PROTOCOL_VERSION_BYTES_31) :]  # remove version header
             # remove (what I'm guessing, but not confirmed is) 16-bytes of MD5
@@ -500,7 +507,7 @@ class TuyaProtocol(asyncio.Protocol):
                     self.dev_type,
                 )
                 return None
-        elif not payload.startswith(b"{"):
+        else:
             raise Exception(f"Unexpected payload={payload} (id: {self.id})")
 
         if not isinstance(payload, str):
