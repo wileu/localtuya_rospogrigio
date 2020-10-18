@@ -216,6 +216,8 @@ class MessageDispatcher:
         header_len = struct.calcsize(MESSAGE_RECV_HEADER_FMT)
 
         while self.buffer:
+            _LOGGER.debug("Process buffer: %s", binascii.hexlify(self.buffer))
+
             # Check if enough data for measage header
             if len(self.buffer) < header_len:
                 break
@@ -241,11 +243,14 @@ class MessageDispatcher:
                 self.buffer[payload_start + payload_length : payload_start + length],
             )
 
-            self.buffer = self.buffer[payload_start + length :]
+            self.buffer = self.buffer[header_len - 4 + length :]
             self._dispatch(TuyaMessage(seqno, cmd, retcode, payload, crc))
+
+        _LOGGER.debug("Buffer rest: %s", binascii.hexlify(self.buffer))
 
     def _dispatch(self, msg):
         """Dispatch a message to someone that is listening."""
+        _LOGGER.debug("Dispatching %s", msg)
         if msg.seqno in self.listeners:
             self.log.debug("Dispatching sequence number %d", msg.seqno)
             sem = self.listeners[msg.seqno]
