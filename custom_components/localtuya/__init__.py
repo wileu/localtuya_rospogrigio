@@ -71,7 +71,7 @@ from homeassistant.helpers.reload import async_integration_yaml_config
 
 from .common import TuyaDevice
 from .config_flow import config_schema
-from .const import DATA_DISCOVERY, DOMAIN, TUYA_DEVICE
+from .const import CONF_PASSIVE_DEVICE, DATA_DISCOVERY, DOMAIN, TUYA_DEVICE
 from .discovery import TuyaDiscovery
 
 _LOGGER = logging.getLogger(__name__)
@@ -138,16 +138,28 @@ async def async_setup(hass: HomeAssistant, config: dict):
                 # potential update below
                 device_cache[device_id] = entry.data[CONF_HOST]
 
+        if device_id not in device_cache:
+            return
+
+        entry = _entry_by_device_id(device_id)
+        if not entry:
+            return
+
         # If device is in cache and address changed...
-        if device_id in device_cache and device_cache[device_id] != device_ip:
+        if device_cache[device_id] != device_ip:
             _LOGGER.debug("Device %s changed IP to %s", device_id, device_ip)
 
-            entry = _entry_by_device_id(device_id)
-            if entry:
-                hass.config_entries.async_update_entry(
-                    entry, data={**entry.data, CONF_HOST: device_ip}
-                )
-                device_cache[device_id] = device_ip
+            hass.config_entries.async_update_entry(
+                entry, data={**entry.data, CONF_HOST: device_ip}
+            )
+            device_cache[device_id] = device_ip
+
+        # If device is passive, initiate connection attempt
+        if entry.data[CONF_PASSIVE_DEVICE]:
+            _LOGGER.debug("Passive device %s found with IP %s", device_id, device_ip)
+
+            device = hass.data[DOMAIN][entry.entry_id][TUYA_DEVICE]
+            device.connect()
 
     discovery = TuyaDiscovery(_device_discovered)
 
@@ -197,7 +209,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 for platform in platforms
             ]
         )
-        device.connect()
+        if not entry.data[CONF_PASSIVE_DEVICE]:
+            device.connect()
+        else:
+            _LOGGER.debug(
+                "Not connecting to passive device %s", entry.data[CONF_DEVICE_ID]
+            )
 
     hass.async_create_task(setup_entities())
 

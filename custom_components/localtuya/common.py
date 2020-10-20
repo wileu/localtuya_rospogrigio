@@ -19,7 +19,13 @@ from homeassistant.helpers.dispatcher import (
 from homeassistant.helpers.entity import Entity
 
 from . import pytuya
-from .const import CONF_LOCAL_KEY, CONF_PROTOCOL_VERSION, DOMAIN, TUYA_DEVICE
+from .const import (
+    CONF_LOCAL_KEY,
+    CONF_PROTOCOL_VERSION,
+    CONF_PASSIVE_DEVICE,
+    DOMAIN,
+    TUYA_DEVICE,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -201,7 +207,10 @@ class TuyaDevice(pytuya.TuyaListener):
         async_dispatcher_send(self._hass, signal, None)
 
         self._interface = None
-        self.connect()
+        if not self._config_entry[CONF_PASSIVE_DEVICE]:
+            self.connect()
+        else:
+            _LOGGER.debug("No automatic re-connect due to passive device")
 
 
 class LocalTuyaEntity(Entity):

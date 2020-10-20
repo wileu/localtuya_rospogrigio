@@ -17,9 +17,10 @@ from homeassistant.core import callback
 
 from . import pytuya
 from .const import (  # pylint: disable=unused-import
-    CONF_DPS_STRINGS,
     CONF_LOCAL_KEY,
     CONF_PROTOCOL_VERSION,
+    CONF_DPS_STRINGS,
+    CONF_PASSIVE_DEVICE,
     DATA_DISCOVERY,
     DOMAIN,
     PLATFORMS,
@@ -41,6 +42,7 @@ BASIC_INFO_SCHEMA = vol.Schema(
         vol.Required(CONF_HOST): str,
         vol.Required(CONF_DEVICE_ID): str,
         vol.Required(CONF_PROTOCOL_VERSION, default="3.3"): vol.In(["3.1", "3.3"]),
+        vol.Required(CONF_PASSIVE_DEVICE, default=False): bool,
     }
 )
 
@@ -60,6 +62,7 @@ DEVICE_SCHEMA = vol.Schema(
         vol.Required(CONF_LOCAL_KEY): cv.string,
         vol.Required(CONF_FRIENDLY_NAME): cv.string,
         vol.Required(CONF_PROTOCOL_VERSION, default="3.3"): vol.In(["3.1", "3.3"]),
+        vol.Required(CONF_PASSIVE_DEVICE, default=False): bool,
     }
 )
 
