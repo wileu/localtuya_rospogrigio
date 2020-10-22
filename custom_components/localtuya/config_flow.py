@@ -244,7 +244,8 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_basic_info()
 
         # Use cache if available or fallback to manual discovery
-        if DOMAIN in self.hass.data:
+        data = self.hass.data.get(DOMAIN, {})
+        if DATA_DISCOVERY in data:
             devices = self.hass.data[DOMAIN][DATA_DISCOVERY].devices
         else:
             devices = await discover()
@@ -358,9 +359,7 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     type_convert = DEBUG_TYPES_CONVERSIONS[user_input[CONF_DATA_TYPE]]
                     value = type_convert(user_input[CONF_VALUE])
                     dp = user_input[CONF_DATAPOINT].split(" ")[0]
-                    await _tuya_command(
-                        self.hass, self.basic_info, "set_dps", value, dp
-                    )
+                    await _tuya_command(self.hass, self.basic_info, "set_dp", value, dp)
                 except Exception:  # pylint: disable=broad-except
                     _LOGGER.exception(f"failed to set datapoint {dp}={value}")
                     errors["base"] = "set_dp_failed"

@@ -55,8 +55,9 @@ class TuyaDiscovery(asyncio.DatagramProtocol):
     def close(self):
         """Stop discovery."""
         self.callback = None
-        for transport, _ in self.listeners:
-            transport.close()
+        if self._listeners is not None:
+            for transport, _ in self._listeners:
+                transport.close()
 
     def datagram_received(self, data, addr):
         """Handle received broadcast message."""
