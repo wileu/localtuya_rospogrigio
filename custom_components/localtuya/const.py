@@ -28,11 +28,14 @@ CONF_SPAN_TIME = "span_time"
 # sensor
 CONF_SCALING = "scaling"
 
+# vacuum
+CONF_BATTERY_DP = "battery_dp"
+
 DATA_DISCOVERY = "discovery"
 
 DOMAIN = "localtuya"
 
 # Platforms in this list must support config flows
-PLATFORMS = ["binary_sensor", "cover", "fan", "light", "sensor", "switch"]
+PLATFORMS = ["binary_sensor", "cover", "fan", "light", "sensor", "switch", "vacuum"]
 
 TUYA_DEVICE = "tuya_device"
