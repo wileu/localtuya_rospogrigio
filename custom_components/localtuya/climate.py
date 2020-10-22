@@ -3,48 +3,41 @@ import logging
 from functools import partial
 
 import voluptuous as vol
-
 from homeassistant.components.climate import (
-    ClimateEntity,
-    DOMAIN,
-    DEFAULT_MIN_TEMP,
     DEFAULT_MAX_TEMP,
+    DEFAULT_MIN_TEMP,
+    DOMAIN,
+    ClimateEntity,
 )
-from homeassistant.components.climate.const import (
+from homeassistant.components.climate.const import (  # HVAC_MODE_COOL,; HVAC_MODE_FAN_ONLY,; SUPPORT_TARGET_HUMIDITY,; SUPPORT_PRESET_MODE,; SUPPORT_SWING_MODE,; SUPPORT_AUX_HEAT,
     HVAC_MODE_AUTO,
-    # HVAC_MODE_COOL,
-    # HVAC_MODE_FAN_ONLY,
     HVAC_MODE_HEAT,
     HVAC_MODE_OFF,
+    SUPPORT_FAN_MODE,
     SUPPORT_TARGET_TEMPERATURE,
     SUPPORT_TARGET_TEMPERATURE_RANGE,
-    # SUPPORT_TARGET_HUMIDITY,
-    SUPPORT_FAN_MODE,
-    # SUPPORT_PRESET_MODE,
-    # SUPPORT_SWING_MODE,
-    # SUPPORT_AUX_HEAT,
 )
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     CONF_TEMPERATURE_UNIT,
-    TEMP_CELSIUS,
-    TEMP_FAHRENHEIT,
-    PRECISION_WHOLE,
     PRECISION_HALVES,
     PRECISION_TENTHS,
+    PRECISION_WHOLE,
+    TEMP_CELSIUS,
+    TEMP_FAHRENHEIT,
 )
 
+from .common import LocalTuyaEntity, async_setup_entry
 from .const import (
-    CONF_TARGET_TEMPERATURE_DP,
     CONF_CURRENT_TEMPERATURE_DP,
-    CONF_MAX_TEMP_DP,
-    CONF_MIN_TEMP_DP,
     CONF_FAN_MODE_DP,
     CONF_HVAC_MODE_DP,
-    CONF_TEMPERATURE_STEP,
+    CONF_MAX_TEMP_DP,
+    CONF_MIN_TEMP_DP,
     CONF_PRECISION,
+    CONF_TARGET_TEMPERATURE_DP,
+    CONF_TEMPERATURE_STEP,
 )
-from .common import LocalTuyaEntity, async_setup_entry
 
 _LOGGER = logging.getLogger(__name__)
 
