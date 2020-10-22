@@ -386,7 +386,7 @@ class TuyaProtocol(asyncio.Protocol):
             self.transport = None
             transport.close()
 
-    async def exchange(self, command, dps=None):
+    async def exchange(self, command, dps=None, is_retry=False):
         """Send and receive a message, returning response from device."""
         self.log.debug(
             "Sending command %s (device type: %s)",
@@ -421,6 +421,9 @@ class TuyaProtocol(asyncio.Protocol):
                 self.dev_type,
             )
             return await self.exchange(command, dps)
+        if payload == "bad format" and not is_retry:
+            self.log.error("re-send bad data format")
+            return await self.exchange(command, dps, is_retry=True)
         return payload
 
     async def status(self):
@@ -506,6 +509,8 @@ class TuyaProtocol(asyncio.Protocol):
                     self.dev_type,
                 )
                 return None
+            if "data format error" in payload:
+                return "bad format"
         else:
             raise Exception(f"Unexpected payload={payload} (id: {self.id})")
 
