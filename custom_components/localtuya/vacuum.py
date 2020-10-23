@@ -43,6 +43,11 @@ class LocaltuyaVacuum(LocalTuyaEntity, VacuumEntity):
         print("Initialized vacuum [{}]".format(self.name))
 
     @property
+    def supported_features(self):
+        """Flag supported features."""
+        return None
+
+    @property
     def state(self):
         """Return the vacuum state."""
         return STATE_IDLE
