@@ -195,10 +195,11 @@ class MessageDispatcher:
             if isinstance(sem, asyncio.Semaphore):
                 sem.release()
 
-    async def wait_for(self, seqno, timeout=5):
+    async def wait_for(self, seqno, timeout):
         """Wait for response to a sequence number to be received and return it."""
         if seqno in self.listeners:
-            raise Exception(f"listener exists for {seqno} (id: {self.id})")
+            return None
+            raise Exception(f"listener exists for {seqno}")
 
         self.log.debug("Waiting for sequence number %d", seqno)
         self.listeners[seqno] = asyncio.Semaphore(0)
@@ -386,7 +387,12 @@ class TuyaProtocol(asyncio.Protocol):
             self.transport = None
             transport.close()
 
-    async def exchange(self, command, dps=None):
+    async def bla(self, dp):
+        payload = self._generate_payload(SET) #, {str(dp): None})
+        self.transport.write(payload)
+
+
+    async def exchange(self, command, dps=None, timeout=5):
         """Send and receive a message, returning response from device."""
         self.log.debug(
             "Sending command %s (device type: %s)",
@@ -404,7 +410,7 @@ class TuyaProtocol(asyncio.Protocol):
         )
 
         self.transport.write(payload)
-        msg = await self.dispatcher.wait_for(seqno)
+        msg = await self.dispatcher.wait_for(seqno, timeout)
         if msg is None:
             self.log.debug("Wait was aborted for seqno %d", seqno)
             return None
@@ -442,6 +448,7 @@ class TuyaProtocol(asyncio.Protocol):
             dp_index(int):   dps index to set
             value: new value for the dps index
         """
+        #self.seqno = 0
         return await self.exchange(SET, {str(dp_index): value})
 
     async def set_dps(self, dps):
@@ -604,3 +611,48 @@ async def connect(
 
     await asyncio.wait_for(on_connected, timeout=timeout)
     return protocol
+
+
+class ProbeListener(TuyaListener):
+    """Listener doing nothing."""
+    def __init__(self):
+        self.dps = {}
+        self.semahore = asyncio.Semaphore(0)
+
+    def status_updated(self, status):
+        """Device updated status."""
+        print("status:", status)
+        self.dps.update(status)
+
+    def disconnected(self, exc):
+        """Device disconnected."""
+        
+
+async def probe(address, device_id, local_key, protocol_version):
+    listener = ProbeListener()
+    ranges = [(1, 31), (100, 111)]
+    a = None
+    for lower, upper in ranges:
+        for i in range(lower, upper):
+            try:
+                if a is None:
+                    print("CONNECTING")
+                    a = await connect(address, device_id, local_key, protocol_version, listener=listener)
+                print("EXCHANGE")
+                await a.exchange(SET, dps={str(i): None}, timeout=1)
+                print("SLEEP")
+                await asyncio.sleep(1)
+            except Exception as ex:
+                print("-- EX:", ex)
+                if a:
+                    a.close()
+                    a = None
+                    await asyncio.sleep(1)
+    if a:
+        a.close()
+    print("DPS LIST:", listener.dps)
+
+if __name__ == "__main__":
+    logging.basicConfig(level=logging.DEBUG)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(probe("10.0.10.103", "307001182462ab4de00b", "28ac0651f2d187df", 3.3))
