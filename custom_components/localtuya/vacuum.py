@@ -3,24 +3,18 @@ import logging
 from functools import partial
 
 import voluptuous as vol
-
 from homeassistant.components.vacuum import (
-    VacuumEntity,
     DOMAIN,
     STATE_CLEANING,
     STATE_DOCKED,
-    STATE_RETURNING,
     STATE_ERROR,
+    STATE_RETURNING,
+    VacuumEntity,
 )
-from homeassistant.const import (
-    STATE_IDLE,
-    STATE_PAUSED,
-)
+from homeassistant.const import STATE_IDLE, STATE_PAUSED
 
-from .const import (
-    CONF_BATTERY_DP,
-)
 from .common import LocalTuyaEntity, async_setup_entry
+from .const import CONF_BATTERY_DP
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,7 +60,7 @@ class LocaltuyaVacuum(LocalTuyaEntity, VacuumEntity):
     @property
     def cleaning_mode_list(self):
         """Return the list of available fan speeds and cleaning modes."""
-#        return {"smart", "spirale", "random"}
+        #        return {"smart", "spirale", "random"}
         return NotImplementedError()
 
     async def async_turn_on(self, **kwargs):
