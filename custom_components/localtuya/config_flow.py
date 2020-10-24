@@ -96,7 +96,9 @@ def debug_schema(dps):
                 [ACTION_SET_DPS, ACTION_RELOAD_DPS, ACTION_EXIT_DEBUG]
             ),
             vol.Optional(CONF_DATAPOINT): vol.In(dps),
-            vol.Optional(CONF_DATA_TYPE): vol.In(["int", "float", "str", "bool"]),
+            vol.Optional(CONF_DATA_TYPE, default="int"): vol.In(
+                ["int", "float", "str", "bool"]
+            ),
             vol.Optional(CONF_VALUE): str,
         }
     )
@@ -206,6 +208,7 @@ async def _tuya_command(hass: core.HomeAssistant, data, func, *args):
     finally:
         if interface:
             interface.close()
+    return None
 
 
 async def validate_input(hass: core.HomeAssistant, data):
@@ -363,20 +366,20 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 except Exception:  # pylint: disable=broad-except
                     _LOGGER.exception(f"failed to set datapoint {dp}={value}")
                     errors["base"] = "set_dp_failed"
-
+            elif action == ACTION_RELOAD_DPS:
+                try:
+                    self.dps_strings = await validate_input(self.hass, self.basic_info)
+                except Exception:  # pylint: disable=broad-except
+                    _LOGGER.exception("failed to fetch datapoints")
+                    errors["base"] = "fetch_dps_failed"
             elif action == ACTION_EXIT_DEBUG:
                 return self.async_abort(reason="exit_debug")
 
-        # Always try to refresh datapoints after doing something
-        try:
-            self.dps_strings = await validate_input(self.hass, self.basic_info)
-        except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("failed to fetch datapoints")
-            errors["base"] = "fetch_dps_failed"
-
+        # Pre-fill with previous values if available
+        prefill = user_input or {}
         return self.async_show_form(
             step_id="debug",
-            data_schema=debug_schema(self.dps_strings),
+            data_schema=schema_defaults(debug_schema(self.dps_strings), **prefill),
             errors=errors,
             description_placeholders={"dps": ", ".join(self.dps_strings)},
         )
