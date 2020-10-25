@@ -1,8 +1,10 @@
 """Platform to present any Tuya DP as a sensor."""
 import logging
 from functools import partial
+from datetime import timedelta
 
 import voluptuous as vol
+from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.components.sensor import DEVICE_CLASSES, DOMAIN
 from homeassistant.const import (
     CONF_DEVICE_CLASS,
@@ -11,7 +13,7 @@ from homeassistant.const import (
 )
 
 from .common import LocalTuyaEntity, async_setup_entry
-from .const import CONF_SCALING
+from .const import CONF_SCALING, CONF_POLL_TIME
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +29,7 @@ def flow_schema(dps):
         vol.Optional(CONF_SCALING, default=DEFAULT_SCALING): vol.All(
             vol.Coerce(float), vol.Range(min=-1000000.0, max=1000000.0)
         ),
+        vol.Required(CONF_POLL_TIME, default=0): int,
     }
 
 
@@ -58,6 +61,21 @@ class LocaltuyaSensor(LocalTuyaEntity):
     def unit_of_measurement(self):
         """Return the unit of measurement of this entity, if any."""
         return self._config.get(CONF_UNIT_OF_MEASUREMENT)
+
+    async def async_added_to_hass(self):
+        """Subscribe localtuya events."""
+        await super().async_added_to_hass()
+
+        async def _async_update(now):
+            await self._device.set_dp(None, self._dp_id)
+
+        poll_time = self._config[CONF_POLL_TIME]
+        if poll_time and poll_time > 0:
+            self.async_on_remove(
+                async_track_time_interval(
+                    self.hass, _async_update, timedelta(seconds=poll_time)
+                )
+            )
 
     def status_updated(self):
         """Device status was updated."""

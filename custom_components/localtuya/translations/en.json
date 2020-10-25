@@ -59,7 +59,8 @@
                     "brightness": "Brightness",
                     "brightness_lower": "Brightness Lower Value",
                     "brightness_upper": "Brightness Upper Value",
-                    "color_temp": "Color Temperature"
+                    "color_temp": "Color Temperature",
+                    "poll_time": "Poll Time"
                 }
             }
         }
@@ -99,7 +100,8 @@
                     "brightness": "Brightness",
                     "brightness_lower": "Brightness Lower Value",
                     "brightness_upper": "Brightness Upper Value",
-                    "color_temp": "Color Temperature"
+                    "color_temp": "Color Temperature",
+                    "poll_time": "Poll Time"
                 }
             },
             "yaml_import": {
