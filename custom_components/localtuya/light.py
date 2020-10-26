@@ -10,8 +10,8 @@ from homeassistant.components.light import (
     ATTR_HS_COLOR,
     DOMAIN,
     SUPPORT_BRIGHTNESS,
-    SUPPORT_COLOR_TEMP,
     SUPPORT_COLOR,
+    SUPPORT_COLOR_TEMP,
     LightEntity,
 )
 from homeassistant.const import CONF_BRIGHTNESS, CONF_COLOR_TEMP
