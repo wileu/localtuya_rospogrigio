@@ -57,10 +57,12 @@
                     "state_on": "On Value",
                     "state_off": "Off Value",
                     "battery_dp": "Battery status DP",
-                    "brightness": "Brightness",
+                    "brightness": "Brightness (only for white color)",
                     "brightness_lower": "Brightness Lower Value",
                     "brightness_upper": "Brightness Upper Value",
-                    "color_temp": "Color Temperature"
+                    "color_temp": "Color Temperature",
+                    "color": "Color",
+                    "color_mode": "Color Mode"
                 }
             }
         }
@@ -98,10 +100,12 @@
                     "state_on": "On Value",
                     "state_off": "Off Value",
                     "battery_dp": "Battery status DP",
-                    "brightness": "Brightness",
+                    "brightness": "Brightness (only for white color)",
                     "brightness_lower": "Brightness Lower Value",
                     "brightness_upper": "Brightness Upper Value",
-                    "color_temp": "Color Temperature"
+                    "color_temp": "Color Temperature",
+                    "color": "Color",
+                    "color_mode": "Color Mode"
                 }
             },
             "yaml_import": {
