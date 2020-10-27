@@ -1,5 +1,7 @@
 """Constants for localtuya integration."""
 
+ATTR_LAST_SEEN = "last_seen"
+ATTR_OLD_STATE = "old_state"
 ATTR_CURRENT = "current"
 ATTR_CURRENT_CONSUMPTION = "current_consumption"
 ATTR_VOLTAGE = "voltage"

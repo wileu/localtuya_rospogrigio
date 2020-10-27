@@ -139,6 +139,25 @@ Energy monitoring (voltage, current...) values can be obtained in two different 
                unit_of_measurement: 'W' 
 ```   
 
+# Passive Devices
+
+Some battery powered devices, like window and door sensors, will go to sleep as much as posssible to save
+battery. This is problematic as it's not possible to maintain a persistent connection, nor connect
+at all. To support these kinds of devices, `localtuya` has a concept of *passive devices*. When a device is
+configured as passive, `localtuya` will not actively try to maintain a connection or re-connect upon errors.
+Instead, `localtuya` monitors broadcast messages sent by devices to announce their prescence on the network.
+Once such a broadcast has been received, a connection is made and state updated. When a passive device goes to
+sleep, all entities belonging to it will maintain their previous states (instead of becoming unavailable).
+The state is even restored between restarts of Home Assistant.
+
+There is currently no "timeout" detection, e.g. changing of state because no connection has been made in a
+while. Entities of a passive device that is disconnected will get the "last_seen" state attribute. It will
+indicate when a connection was last established and can be used to monitor an entity externally (e.g. using
+an automation).
+
+To configure a device as passive with config flow, check the box `Set up as a passive device`. In YAML, set
+`passive_device` to `true`.
+
 # Debugging
 
 Whenever you write a bug report, it helps tremendously if you include debug logs directly (otherwise we will just ask for them and it will take longer). So please enable debug logs like this and include them in your issue:

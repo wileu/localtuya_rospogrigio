@@ -1,6 +1,7 @@
 """Code shared between all platforms."""
 import asyncio
 import logging
+from datetime import datetime
 from random import randrange
 
 from homeassistant.const import (
@@ -16,13 +17,15 @@ from homeassistant.helpers.dispatcher import (
     async_dispatcher_connect,
     async_dispatcher_send,
 )
-from homeassistant.helpers.entity import Entity
+from homeassistant.helpers.restore_state import RestoreEntity
 
 from . import pytuya
 from .const import (
+    ATTR_LAST_SEEN,
+    ATTR_OLD_STATE,
     CONF_LOCAL_KEY,
-    CONF_PROTOCOL_VERSION,
     CONF_PASSIVE_DEVICE,
+    CONF_PROTOCOL_VERSION,
     DOMAIN,
     TUYA_DEVICE,
 )
@@ -113,6 +116,11 @@ class TuyaDevice(pytuya.TuyaListener):
         # This has to be done in case the device type is type_0d
         for entity in config_entry[CONF_ENTITIES]:
             self._dps_to_request[entity[CONF_ID]] = None
+
+    @property
+    def connected(self):
+        """Return if device is connected."""
+        return self._interface is not None and self._connect_task is None
 
     def connect(self):
         """Connet to device if not already connected."""
@@ -213,7 +221,7 @@ class TuyaDevice(pytuya.TuyaListener):
             _LOGGER.debug("No automatic re-connect due to passive device")
 
 
-class LocalTuyaEntity(Entity):
+class LocalTuyaEntity(RestoreEntity):
     """Representation of a Tuya entity."""
 
     def __init__(self, device, config_entry, dp_id, **kwargs):
@@ -223,6 +231,7 @@ class LocalTuyaEntity(Entity):
         self._config = get_entity_config(config_entry, dp_id)
         self._dp_id = dp_id
         self._status = {}
+        self._last_seen = None
 
     async def async_added_to_hass(self):
         """Subscribe localtuya events."""
@@ -234,9 +243,14 @@ class LocalTuyaEntity(Entity):
             """Update entity state when status was updated."""
             if status is not None:
                 self._status = status
+                self._last_seen = None
                 self.status_updated()
+            elif self._config_entry.data[CONF_PASSIVE_DEVICE]:
+                _LOGGER.debug("Passive device disconnected, keeping old state")
+                self._last_seen = datetime.now()
             else:
                 self._status = {}
+                self._last_seen = None
 
             self.schedule_update_ha_state()
 
@@ -244,6 +258,16 @@ class LocalTuyaEntity(Entity):
         self.async_on_remove(
             async_dispatcher_connect(self.hass, signal, _update_handler)
         )
+
+        state = await self.async_get_last_state()
+        if not (state or self._config_entry.data.get(CONF_PASSIVE_DEVICE)):
+            return
+
+        last_seen = state.attributes.get(ATTR_LAST_SEEN)
+        if last_seen:
+            self._last_seen = datetime.fromisoformat(last_seen)
+        self._status = state.attributes.get(ATTR_OLD_STATE, {})
+        self.status_updated()
 
     @property
     def device_info(self):
@@ -258,6 +282,15 @@ class LocalTuyaEntity(Entity):
             "model": "Tuya generic",
             "sw_version": self._config_entry.data[CONF_PROTOCOL_VERSION],
         }
+
+    @property
+    def device_state_attributes(self):
+        """Return device state attributes."""
+        attrs = {}
+        if self._last_seen:
+            attrs[ATTR_LAST_SEEN] = self._last_seen
+            attrs[ATTR_OLD_STATE] = self._status
+        return attrs
 
     @property
     def name(self):
@@ -288,7 +321,7 @@ class LocalTuyaEntity(Entity):
         """Return cached value for DPS index."""
         value = self._status.get(str(dp_index))
         if value is None:
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Entity %s is requesting unknown DPS index %s",
                 self.entity_id,
                 dp_index,

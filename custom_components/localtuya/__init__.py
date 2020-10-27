@@ -9,6 +9,7 @@ localtuya:
     local_key: xxxxx
     friendly_name: Tuya Device
     protocol_version: "3.3"
+    passive_device: "false" # Optional, default "false"
     entities:
       - platform: binary_sensor
         friendly_name: Plug Status
@@ -156,10 +157,12 @@ async def async_setup(hass: HomeAssistant, config: dict):
 
         # If device is passive, initiate connection attempt
         if entry.data[CONF_PASSIVE_DEVICE]:
-            _LOGGER.debug("Passive device %s found with IP %s", device_id, device_ip)
-
             device = hass.data[DOMAIN][entry.entry_id][TUYA_DEVICE]
-            device.connect()
+            if not device.connected:
+                _LOGGER.debug(
+                    "Passive device %s found with IP %s", device_id, device_ip
+                )
+                device.connect()
 
     discovery = TuyaDiscovery(_device_discovered)
 
@@ -209,7 +212,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 for platform in platforms
             ]
         )
-        if not entry.data[CONF_PASSIVE_DEVICE]:
+        if not entry.data.get(CONF_PASSIVE_DEVICE):
             device.connect()
         else:
             _LOGGER.debug(
