@@ -343,12 +343,12 @@ class TuyaProtocol(asyncio.Protocol):
             """Continuously send heart beat updates."""
             self.log.debug("Started heartbeat loop")
             while True:
+                await asyncio.sleep(HEARTBEAT_INTERVAL)
                 try:
                     await self.heartbeat()
                 except Exception as ex:
                     self.log.exception("Heartbeat failed (%s), disconnecting", ex)
                     break
-                await asyncio.sleep(HEARTBEAT_INTERVAL)
             self.log.debug("Stopped heartbeat loop")
             self.close()
 
@@ -641,18 +641,21 @@ async def probe(address, device_id, local_key, protocol_version):
                 print("EXCHANGE")
                 await a.exchange(SET, dps={str(i): None}, timeout=1)
                 print("SLEEP")
-                await asyncio.sleep(1)
+                await asyncio.sleep(3)
             except Exception as ex:
                 print("-- EX:", ex)
                 if a:
                     a.close()
                     a = None
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(13)
     if a:
         a.close()
     print("DPS LIST:", listener.dps)
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(
+        level=logging.DEBUG,
+        datefmt="%Y-%m-%d %H:%M:%S",
+        format="%(asctime)s %(levelname)s: %(message)s")
     loop = asyncio.get_event_loop()
     loop.run_until_complete(probe("10.0.10.103", "307001182462ab4de00b", "28ac0651f2d187df", 3.3))
