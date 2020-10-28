@@ -388,9 +388,8 @@ class TuyaProtocol(asyncio.Protocol):
             transport.close()
 
     async def bla(self, dp):
-        payload = self._generate_payload(SET) #, {str(dp): None})
+        payload = self._generate_payload(SET)  # , {str(dp): None})
         self.transport.write(payload)
-
 
     async def exchange(self, command, dps=None, timeout=5):
         """Send and receive a message, returning response from device."""
@@ -448,7 +447,7 @@ class TuyaProtocol(asyncio.Protocol):
             dp_index(int):   dps index to set
             value: new value for the dps index
         """
-        #self.seqno = 0
+        # self.seqno = 0
         return await self.exchange(SET, {str(dp_index): value})
 
     async def set_dps(self, dps):
@@ -615,6 +614,7 @@ async def connect(
 
 class ProbeListener(TuyaListener):
     """Listener doing nothing."""
+
     def __init__(self):
         self.dps = {}
         self.semahore = asyncio.Semaphore(0)
@@ -626,18 +626,24 @@ class ProbeListener(TuyaListener):
 
     def disconnected(self, exc):
         """Device disconnected."""
-        
+
 
 async def probe(address, device_id, local_key, protocol_version):
     listener = ProbeListener()
-    ranges = [(1, 31), (100, 111)]
+    ranges = [(1, 256)]  # [(1, 31), (100, 111)]
     a = None
     for lower, upper in ranges:
         for i in range(lower, upper):
             try:
                 if a is None:
                     print("CONNECTING")
-                    a = await connect(address, device_id, local_key, protocol_version, listener=listener)
+                    a = await connect(
+                        address,
+                        device_id,
+                        local_key,
+                        protocol_version,
+                        listener=listener,
+                    )
                 print("EXCHANGE")
                 await a.exchange(SET, dps={str(i): None}, timeout=1)
                 print("SLEEP")
@@ -652,10 +658,14 @@ async def probe(address, device_id, local_key, protocol_version):
         a.close()
     print("DPS LIST:", listener.dps)
 
+
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.DEBUG,
         datefmt="%Y-%m-%d %H:%M:%S",
-        format="%(asctime)s %(levelname)s: %(message)s")
+        format="%(asctime)s %(levelname)s: %(message)s",
+    )
     loop = asyncio.get_event_loop()
-    loop.run_until_complete(probe("10.0.10.103", "307001182462ab4de00b", "28ac0651f2d187df", 3.3))
+    loop.run_until_complete(
+        probe("10.0.10.103", "307001182462ab4de00b", "28ac0651f2d187df", 3.3)
+    )
