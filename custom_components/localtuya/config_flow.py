@@ -26,6 +26,7 @@ from .const import (
     PLATFORMS,
 )
 from .discovery import discover
+from .suggestions import suggest
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,13 +117,17 @@ def platform_schema(platform, dps_strings, allow_id=True, yaml=False):
     if allow_id:
         schema[vol.Required(CONF_ID)] = vol.In(dps_strings)
     schema[vol.Required(CONF_FRIENDLY_NAME)] = str
-    return vol.Schema(schema).extend(flow_schema(platform, dps_strings))
 
-
-def flow_schema(platform, dps_strings):
-    """Return flow schema for a specific platform."""
     integration_module = ".".join(__name__.split(".")[:-1])
-    return import_module("." + platform, integration_module).flow_schema(dps_strings)
+    module = import_module("." + platform, integration_module)
+
+    schema.update(module.flow_schema(dps_strings))
+    if yaml:
+        return vol.Schema(schema)
+
+    return schema_defaults(
+        vol.Schema(schema), dps_strings, **suggest(platform, dps_strings)
+    )
 
 
 def strip_dps_values(user_input, dps_strings):
@@ -139,7 +144,8 @@ def strip_dps_values(user_input, dps_strings):
 def config_schema():
     """Build schema used for setting up component."""
     entity_schemas = [
-        platform_schema(platform, range(1, 256), yaml=True) for platform in PLATFORMS
+        platform_schema(platform, [dp for dp in range(1, 256)], yaml=True)
+        for platform in PLATFORMS
     ]
     return vol.Schema(
         {
