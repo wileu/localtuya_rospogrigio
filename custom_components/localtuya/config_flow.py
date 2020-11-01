@@ -108,7 +108,7 @@ def gen_dps_strings():
     return [f"{dp} (value: ?)" for dp in range(1, 256)]
 
 
-def platform_schema(platform, dps_strings, allow_id=True, yaml=False):
+def platform_schema(platform, dps_strings, allow_id=True, yaml=False, dps_in_use=None):
     """Generate input validation schema for a platform."""
     schema = {}
     if yaml:
@@ -126,7 +126,7 @@ def platform_schema(platform, dps_strings, allow_id=True, yaml=False):
         return vol.Schema(schema)
 
     return schema_defaults(
-        vol.Schema(schema), dps_strings, **suggest(platform, dps_strings)
+        vol.Schema(schema), dps_strings, **suggest(platform, dps_strings, dps_in_use)
     )
 
 
@@ -207,6 +207,10 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self.devices = {}
         self.selected_device = None
         self.entities = []
+
+    def async_dps_in_use(self):
+        """Return datapoints used as ID for entities."""
+        return [entity[CONF_ID] for entity in self.entities]
 
     async def async_step_user(self, user_input=None):
         """Handle the initial step."""
@@ -318,7 +322,9 @@ class LocaltuyaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="add_entity",
-            data_schema=platform_schema(self.platform, self.dps_strings),
+            data_schema=platform_schema(
+                self.platform, self.dps_strings, dps_in_use=self.async_dps_in_use()
+            ),
             errors=errors,
             description_placeholders={"platform": self.platform},
         )
