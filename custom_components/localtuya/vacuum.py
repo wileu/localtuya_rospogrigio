@@ -17,7 +17,7 @@ from homeassistant.components.vacuum import (
     SUPPORT_STATE,
     SUPPORT_STATUS,
     SUPPORT_STOP,
-    VacuumEntity,
+    StateVacuumEntity,
 )
 
 from .common import LocalTuyaEntity, async_setup_entry
@@ -56,20 +56,14 @@ def flow_schema(dps):
     }
 
 
-class LocaltuyaVacuum(LocalTuyaEntity, VacuumEntity):
+class LocaltuyaVacuum(LocalTuyaEntity, StateVacuumEntity):
     """Tuya vacuum device."""
 
-    def __init__(
-        self,
-        device,
-        config_entry,
-        switchid,
-        **kwargs,
-    ):
+    def __init__(self, device, config_entry, switchid, **kwargs):
         """Initialize a new LocaltuyaVacuum."""
         super().__init__(device, config_entry, switchid, **kwargs)
         self._state = None
-        self._commands_set = self._config[CONF_COMMANDS_SET]
+        self._commands_set = self._config[CONF_COMMANDS_SET].split(",")
         self._battery_level = None
 
         self._cleaning_modes_list = []
@@ -144,23 +138,34 @@ class LocaltuyaVacuum(LocalTuyaEntity, VacuumEntity):
 
     async def async_start(self, **kwargs):
         """Turn the vacuum on and start cleaning."""
-        print("start [{}]".format(kwargs))
-        return None
+        await self._device.set_dp(self._commands_set[0], self._config[CONF_COMMANDS_DP])
 
     async def async_pause(self, **kwargs):
-        """Turn the vacuum off stopping the cleaning and returning home."""
-        print("pause [{}]".format(kwargs))
-        return None
+        """Stop the vacuum cleaner, do not return to base."""
+        if len(self._commands_set) > 1:
+            await self._device.set_dp(
+                self._commands_set[1], self._config[CONF_COMMANDS_DP]
+            )
+        else:
+            _LOGGER.error("Missing command for pause in commands set.")
 
     async def async_return_to_base(self, **kwargs):
         """Set the vacuum cleaner to return to the dock."""
-        print("return base [{}]".format(kwargs))
-        return None
+        if len(self._commands_set) > 2:
+            await self._device.set_dp(
+                self._commands_set[2], self._config[CONF_COMMANDS_DP]
+            )
+        else:
+            _LOGGER.error("Missing command for pause in commands set.")
 
     async def async_stop(self, **kwargs):
-        """Stop the vacuum cleaner, do not return to base."""
-        print("stop [{}]".format(kwargs))
-        return None
+        """Turn the vacuum off stopping the cleaning and returning home."""
+        if len(self._commands_set) > 2:
+            await self._device.set_dp(
+                self._commands_set[2], self._config[CONF_COMMANDS_DP]
+            )
+        else:
+            _LOGGER.error("Missing command for pause in commands set.")
 
     async def async_clean_spot(self, **kwargs):
         """Perform a spot clean-up."""
@@ -174,31 +179,28 @@ class LocaltuyaVacuum(LocalTuyaEntity, VacuumEntity):
         """Set the cleaning mode."""
         fan_speed = kwargs["fan_speed"]
         if fan_speed in self._cleaning_modes_list:
-            print("SET NEW CM [{}]".format(kwargs))
+            print("SET NEW CM [{}]".format(fan_speed))
+            await self._device.set_dp(fan_speed, self._config[CONF_CLEANING_MODE_DP])
         if fan_speed in self._fan_speed_list:
-            print("SET NEW FL [{}]".format(kwargs))
-        print("async_set_fan_speed [{}]".format(kwargs))
-        return None
+            print("SET NEW FL [{}]".format(fan_speed))
+            await self._device.set_dp(fan_speed, self._config[CONF_FAN_SPEED_DP])
 
     def status_updated(self):
         """Device status was updated."""
-        state_value = self.dps(self._dp_id)
-        print("STATUS UPDATE: [{}]".format(state_value))
-        """
+        state_value = str(self.dps(self._dp_id))
         if state_value == self._config[CONF_IDLE_STATUS_VALUE]:
             self._state = STATE_IDLE
-        elif state_value == self._config.get(CONF_DOCKED_STATUS_VALUE, ""):
+        elif state_value == self._config[CONF_DOCKED_STATUS_VALUE]:
             self._state = STATE_DOCKED
         elif state_value == self._config.get(CONF_RETURNING_STATUS_VALUE, ""):
             self._state = STATE_RETURNING
         else:
             self._state = STATE_CLEANING
-        """
-        self._state = STATE_CLEANING
-        print("STATUS UPDATE2: [{}]".format(self._state))
 
         if self.has_config(CONF_BATTERY_DP):
-            self._battery_level = round(self.dps_conf(CONF_BATTERY_DP) / 2300 * 100)
+            # testing
+            # self._battery_level = round(self.dps_conf(CONF_BATTERY_DP) / 2300 * 100)
+            self._battery_level = self.dps_conf(CONF_BATTERY_DP)
 
         self._fan_speed = ""
         if self.has_config(CONF_CLEANING_MODES):
@@ -211,8 +213,6 @@ class LocaltuyaVacuum(LocalTuyaEntity, VacuumEntity):
 
             self._attrs[CURRENT_FAN_SPEED] = self._fan_speed_list[0]
             self._fan_speed = self._fan_speed + self._fan_speed_list[0]
-
-        print("STATUS UPDATED [{}] [{}]".format(self._state, self._battery_level))
 
 
 async_setup_entry = partial(async_setup_entry, DOMAIN, LocaltuyaVacuum, flow_schema)
