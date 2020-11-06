@@ -1,6 +1,4 @@
 """Module used to suggest datapoints for a platform."""
-from homeassistant.const import CONF_ID
-
 from importlib import import_module
 
 from homeassistant.const import CONF_ID
