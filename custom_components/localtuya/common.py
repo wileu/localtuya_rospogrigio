@@ -96,6 +96,16 @@ def get_entity_config(config_entry, dp_id):
     raise Exception(f"missing entity config for id {dp_id}")
 
 
+@callback
+def async_config_entry_by_device_id(hass, device_id):
+    """Look up config entry by device id."""
+    current_entries = hass.config_entries.async_entries(DOMAIN)
+    for entry in current_entries:
+        if entry.data[CONF_DEVICE_ID] == device_id:
+            return entry
+    return None
+
+
 class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
     """Cache wrapper for pytuya.TuyaInterface."""
 

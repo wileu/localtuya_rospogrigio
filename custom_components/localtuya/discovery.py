@@ -49,7 +49,7 @@ class TuyaDiscovery(asyncio.DatagramProtocol):
             lambda: self, local_addr=("0.0.0.0", 6667)
         )
 
-        self.listeners = await asyncio.gather(listener, encrypted_listener)
+        self._listeners = await asyncio.gather(listener, encrypted_listener)
         _LOGGER.debug("Listening to broadcasts on UDP port 6666 and 6667")
 
     def close(self):
@@ -72,7 +72,7 @@ class TuyaDiscovery(asyncio.DatagramProtocol):
     def device_found(self, device):
         """Discover a new device."""
         if device.get("ip") not in self.devices:
-            self.devices[device.get("ip")] = device
+            self.devices[device.get("gwId")] = device
             _LOGGER.debug("Discovered device: %s", device)
 
         if self._callback:
