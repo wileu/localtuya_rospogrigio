@@ -119,30 +119,32 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         """Connet to device if not already connected."""
         if not self._is_closing and self._connect_task is None and not self._interface:
             self.debug(
-                "Connecting to %s",
+                "Starting connect loop to %s",
                 self._config_entry[CONF_HOST],
             )
             self._connect_task = asyncio.ensure_future(self._make_connection())
-        else:
-            self.debug(
-                "Already connecting to %s (%s) - %s, %s, %s",
-                self._config_entry[CONF_HOST],
-                self._config_entry[CONF_DEVICE_ID],
-                self._is_closing,
-                self._connect_task,
-                self._interface,
-            )
 
     async def _make_connection(self):
+        async def _restart_loop():
+            self._connection_attempts += 1
+            if self._interface is not None:
+                await self._interface.close()
+                self._interface = None
+            else:
+                self._hass.loop.call_soon(self.connect)
+
         backoff = min(
             randrange(2 ** self._connection_attempts), BACKOFF_TIME_UPPER_LIMIT
         )
 
-        self.debug("Waiting %d seconds before connecting", backoff)
+        self.debug(
+            "Waiting %d seconds before connecting to %s",
+            backoff,
+            self._config_entry[CONF_HOST],
+        )
         await asyncio.sleep(backoff)
 
         try:
-            self.debug("Connecting to %s", self._config_entry[CONF_HOST])
             self._interface = await pytuya.connect(
                 self._config_entry[CONF_HOST],
                 self._config_entry[CONF_DEVICE_ID],
@@ -154,27 +156,26 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
 
             self.debug("Retrieving initial state")
             status = await self._interface.status()
-            if status is None:
-                raise Exception("Failed to retrieve status")
-
-            self.status_updated(status)
-            self._connection_attempts = 0
+            if not status:
+                self.warning("Failed to retrieve initial state, will re-connect")
+                await _restart_loop()
+            else:
+                self.status_updated(status)
+                self._connection_attempts = 0
         except Exception:
-            self.exception(f"Connect to {self._config_entry[CONF_HOST]} failed")
-            self._connection_attempts += 1
-            if self._interface is not None:
-                self._interface.close()
-                self._interface = None
-            self._hass.loop.call_soon(self.connect)
+            self.exception("Connect to %s failed", self._config_entry[CONF_HOST])
+            await _restart_loop()
         self._connect_task = None
 
-    def close(self):
+    async def close(self):
         """Close connection and stop re-connect loop."""
         self._is_closing = True
-        if self._connect_task:
+        if self._connect_task is not None:
             self._connect_task.cancel()
-        if self._interface:
-            self._interface.close()
+            await self._connect_task
+        if self._interface is not None:
+            self._interface.listener = None
+            await self._interface.close()
 
     async def set_dp(self, state, dp_index):
         """Change value of a DP of the Tuya device."""
@@ -209,14 +210,14 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
         async_dispatcher_send(self._hass, signal, self._status)
 
     @callback
-    def disconnected(self, exc):
+    def disconnected(self):
         """Device disconnected."""
-        self.debug("Disconnected: %s", exc)
-
         signal = f"localtuya_{self._config_entry[CONF_DEVICE_ID]}"
         async_dispatcher_send(self._hass, signal, None)
 
-        self._interface = None
+        if self._interface is not None:
+            asyncio.ensure_future(self._interface.close())
+            self._interface = None
         self.connect()
 
 
