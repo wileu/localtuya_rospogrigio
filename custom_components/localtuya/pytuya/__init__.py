@@ -87,12 +87,12 @@ HEARTBEAT_INTERVAL = 20
 # length, zero padding implies could be more than one byte)
 PAYLOAD_DICT = {
     "type_0a": {
-        STATUS: {"hexByte": 0x0A, "command": {"gwId": "", "devId": ""}},
+        STATUS: {"hexByte": 0x0A, "command": {"gwId": "", "devId": "", "uid": ""}},
         SET: {"hexByte": 0x07, "command": {"devId": "", "uid": "", "t": ""}},
         HEARTBEAT: {"hexByte": 0x09, "command": {}},
     },
     "type_0d": {
-        STATUS: {"hexByte": 0x0D, "command": {"devId": "", "uid": "", "t": ""}},
+        STATUS: {"hexByte": 0x0D, "command": {"devId": "", "uid": "", "t": "", "uid": ""}},
         SET: {"hexByte": 0x07, "command": {"devId": "", "uid": "", "t": ""}},
         HEARTBEAT: {"hexByte": 0x09, "command": {}},
     },
