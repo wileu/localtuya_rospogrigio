@@ -32,7 +32,7 @@ from .const import (
 
 _LOGGER = logging.getLogger(__name__)
 
-MIRED_TO_KELVIN_CONST = 1000000
+MIRED_TO_KELVIN_CONST = 1_000_000
 DEFAULT_MIN_KELVIN = 2700  # MIRED 370
 DEFAULT_MAX_KELVIN = 6500  # MIRED 153
 
@@ -127,13 +127,7 @@ def flow_schema(dps):
 class LocaltuyaLight(LocalTuyaEntity, LightEntity):
     """Representation of a Tuya light."""
 
-    def __init__(
-        self,
-        device,
-        config_entry,
-        lightid,
-        **kwargs,
-    ):
+    def __init__(self, device, config_entry, lightid, **kwargs):
         """Initialize the Tuya light."""
         super().__init__(device, config_entry, lightid, _LOGGER, **kwargs)
         self._state = False

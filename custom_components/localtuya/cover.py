@@ -1,6 +1,8 @@
 """Platform to locally control Tuya-based cover devices."""
 import asyncio
+import json
 import logging
+import os
 import time
 from functools import partial
 
@@ -64,8 +66,6 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
     def __init__(self, device, config_entry, switchid, **kwargs):
         """Initialize a new LocaltuyaCover."""
         super().__init__(device, config_entry, switchid, _LOGGER, **kwargs)
-        self._state = None
-        self._current_cover_position = 50
         commands_set = DEFAULT_COMMANDS_SET
         if self.has_config(CONF_COMMANDS_SET):
             commands_set = self._config[CONF_COMMANDS_SET]
@@ -73,7 +73,12 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
         self._close_cmd = commands_set.split("_")[1]
         self._stop_cmd = commands_set.split("_")[2]
         self._timer_start = time.time()
-        self._previous_state = self._stop_cmd
+        self._state = self._stop_cmd
+        self._previous_state = self._state
+        self._current_cover_position = 0
+        self._fakepos_json_filename = f"localtuya_{self.unique_id}_fakepos.json"
+        if self._config[CONF_POSITIONING_MODE] == COVER_MODE_FAKE:
+            self.read_fake_position()
         print("Initialized cover [{}]".format(self.name))
 
     @property
@@ -117,6 +122,25 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
 
         return self._current_cover_position == 0
 
+    def read_fake_position(self):
+        """Read current position for fake positioning from JSON file."""
+        if os.path.exists(self._fakepos_json_filename):
+            f = open(self._fakepos_json_filename)
+            content = json.load(f)
+            f.close()
+            self._current_cover_position = content["fake_position"]
+            self.info(
+                "Initialized fake pos from file: %i", self._current_cover_position
+            )
+
+    def write_fake_position(self):
+        """Write current position for fake positioning to JSON file."""
+        f = open(self._fakepos_json_filename, "w")
+        content = {"fake_position": self._current_cover_position}
+        json.dump(content, f, indent=4)
+        f.close()
+        self.info("Stored fake pos to file: %i", self._current_cover_position)
+
     async def async_set_cover_position(self, **kwargs):
         """Move the cover to a specific position."""
         self.debug("Setting cover position: %r", kwargs[ATTR_POSITION])
@@ -125,7 +149,7 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
 
             currpos = self.current_cover_position
             posdiff = abs(newpos - currpos)
-            mydelay = posdiff / 50.0 * self._config[CONF_SPAN_TIME]
+            mydelay = posdiff / 100.0 * self._config[CONF_SPAN_TIME]
             if newpos > currpos:
                 self.debug("Opening to %f: delay %f", newpos, mydelay)
                 await self.async_open_cover()
@@ -183,7 +207,7 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
             if self._previous_state != self._stop_cmd:
                 # the state has changed, and the cover was moving
                 time_diff = time.time() - self._timer_start
-                pos_diff = round(time_diff / self._config[CONF_SPAN_TIME] * 50.0)
+                pos_diff = round(time_diff / self._config[CONF_SPAN_TIME] * 100.0)
                 if self._previous_state == self._close_cmd:
                     pos_diff = -pos_diff
                 self._current_cover_position = min(
@@ -197,6 +221,9 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
                     time_diff,
                     pos_diff,
                 )
+                if self._state == self._stop_cmd:
+                    self.write_fake_position()
+
             # store the time of the last movement change
             self._timer_start = time.time()
 
