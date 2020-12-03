@@ -71,7 +71,11 @@ async def async_setup_entry(
                 tuyainterface._dps_to_request[device_config[dp_conf]] = None
 
         entities.append(
-            entity_class(tuyainterface, config_entry, device_config[CONF_ID])
+            entity_class(
+                tuyainterface,
+                config_entry,
+                device_config[CONF_ID],
+            )
         )
 
     async_add_entities(entities)
@@ -114,7 +118,10 @@ class TuyaDevice(pytuya.TuyaListener, pytuya.ContextualLogger):
     def connect(self):
         """Connet to device if not already connected."""
         if not self._is_closing and self._connect_task is None and not self._interface:
-            self.debug("Connecting to %s", self._config_entry[CONF_HOST])
+            self.debug(
+                "Connecting to %s",
+                self._config_entry[CONF_HOST],
+            )
             self._connect_task = asyncio.ensure_future(self._make_connection())
         else:
             self.debug(
@@ -290,7 +297,9 @@ class LocalTuyaEntity(Entity, pytuya.ContextualLogger):
         value = self._status.get(str(dp_index))
         if value is None:
             self.warning(
-                "Entity %s is requesting unknown DPS index %s", self.entity_id, dp_index
+                "Entity %s is requesting unknown DPS index %s",
+                self.entity_id,
+                dp_index,
             )
 
         return value
