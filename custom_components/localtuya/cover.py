@@ -35,7 +35,7 @@ COVER_FZZZ_CMDS = "fz_zz_stop"
 COVER_12_CMDS = "1_2_3"
 COVER_MODE_NONE = "none"
 COVER_MODE_POSITION = "position"
-COVER_MODE_FAKE = "fake"
+COVER_MODE_TIMED = "timed"
 
 DEFAULT_COMMANDS_SET = COVER_ONOFF_CMDS
 DEFAULT_POSITIONING_MODE = COVER_MODE_NONE
@@ -49,7 +49,7 @@ def flow_schema(dps):
             [COVER_ONOFF_CMDS, COVER_OPENCLOSE_CMDS, COVER_FZZZ_CMDS, COVER_12_CMDS]
         ),
         vol.Optional(CONF_POSITIONING_MODE, default=DEFAULT_POSITIONING_MODE): vol.In(
-            [COVER_MODE_NONE, COVER_MODE_POSITION, COVER_MODE_FAKE]
+            [COVER_MODE_NONE, COVER_MODE_POSITION, COVER_MODE_TIMED]
         ),
         vol.Optional(CONF_CURRENT_POSITION_DP): vol.In(dps),
         vol.Optional(CONF_SET_POSITION_DP): vol.In(dps),
@@ -76,9 +76,9 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
         self._state = self._stop_cmd
         self._previous_state = self._state
         self._current_cover_position = 0
-        self._fakepos_json_filename = f"localtuya_{self.unique_id}_fakepos.json"
-        if self._config[CONF_POSITIONING_MODE] == COVER_MODE_FAKE:
-            self.read_fake_position()
+        self._timedpos_json_filename = f"localtuya_{self.unique_id}_timedpos.json"
+        if self._config[CONF_POSITIONING_MODE] == COVER_MODE_TIMED:
+            self.read_timed_position()
         print("Initialized cover [{}]".format(self.name))
 
     @property
@@ -122,29 +122,29 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
 
         return self._current_cover_position == 0
 
-    def read_fake_position(self):
-        """Read current position for fake positioning from JSON file."""
-        if os.path.exists(self._fakepos_json_filename):
-            f = open(self._fakepos_json_filename)
+    def read_timed_position(self):
+        """Read current position for timed positioning from JSON file."""
+        if os.path.exists(self._timedpos_json_filename):
+            f = open(self._timedpos_json_filename)
             content = json.load(f)
             f.close()
-            self._current_cover_position = content["fake_position"]
+            self._current_cover_position = content["timed_position"]
             self.info(
-                "Initialized fake pos from file: %i", self._current_cover_position
+                "Initialized timed pos from file: %i", self._current_cover_position
             )
 
-    def write_fake_position(self):
-        """Write current position for fake positioning to JSON file."""
-        f = open(self._fakepos_json_filename, "w")
-        content = {"fake_position": self._current_cover_position}
+    def write_timed_position(self):
+        """Write current position for timed positioning to JSON file."""
+        f = open(self._timedpos_json_filename, "w")
+        content = {"timed_position": self._current_cover_position}
         json.dump(content, f, indent=4)
         f.close()
-        self.info("Stored fake pos to file: %i", self._current_cover_position)
+        self.info("Stored timed pos to file: %i", self._current_cover_position)
 
     async def async_set_cover_position(self, **kwargs):
         """Move the cover to a specific position."""
         self.debug("Setting cover position: %r", kwargs[ATTR_POSITION])
-        if self._config[CONF_POSITIONING_MODE] == COVER_MODE_FAKE:
+        if self._config[CONF_POSITIONING_MODE] == COVER_MODE_TIMED:
             newpos = float(kwargs[ATTR_POSITION])
 
             currpos = self.current_cover_position
@@ -174,11 +174,21 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
         """Open the cover."""
         self.debug("Launching command %s to cover ", self._open_cmd)
         await self._device.set_dp(self._open_cmd, self._dp_id)
+        if self._config[CONF_POSITIONING_MODE] == COVER_MODE_TIMED:
+            # for timed positioning, stop the cover after a full opening timespan
+            # instead of waiting the internal timeout
+            await asyncio.sleep(self._config[CONF_SPAN_TIME] + 5)
+            await self.async_stop_cover()
 
     async def async_close_cover(self, **kwargs):
         """Close cover."""
         self.debug("Launching command %s to cover ", self._close_cmd)
         await self._device.set_dp(self._close_cmd, self._dp_id)
+        if self._config[CONF_POSITIONING_MODE] == COVER_MODE_TIMED:
+            # for timed positioning, stop the cover after a full opening timespan
+            # instead of waiting the internal timeout
+            await asyncio.sleep(self._config[CONF_SPAN_TIME] + 5)
+            await self.async_stop_cover()
 
     async def async_stop_cover(self, **kwargs):
         """Stop the cover."""
@@ -201,7 +211,7 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
             else:
                 self._current_cover_position = curr_pos
         if (
-            self._config[CONF_POSITIONING_MODE] == COVER_MODE_FAKE
+            self._config[CONF_POSITIONING_MODE] == COVER_MODE_TIMED
             and self._state != self._previous_state
         ):
             if self._previous_state != self._stop_cmd:
@@ -222,7 +232,7 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
                     pos_diff,
                 )
                 if self._state == self._stop_cmd:
-                    self.write_fake_position()
+                    self.write_timed_position()
 
             # store the time of the last movement change
             self._timer_start = time.time()
