@@ -171,6 +171,7 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
                 )
 
     async def async_stop_after_timeout(self, **kwargs):
+        """Stop the cover if timeout (max movement span) occurred."""
         await asyncio.sleep(self._config[CONF_SPAN_TIME] + 5)
         await self.async_stop_cover()
 
