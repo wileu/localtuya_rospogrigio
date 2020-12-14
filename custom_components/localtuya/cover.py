@@ -170,6 +170,10 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
                     converted_position, self._config[CONF_SET_POSITION_DP]
                 )
 
+    async def async_stop_after_timeout(self, **kwargs):
+        await asyncio.sleep(self._config[CONF_SPAN_TIME] + 5)
+        await self.async_stop_cover()
+
     async def async_open_cover(self, **kwargs):
         """Open the cover."""
         self.debug("Launching command %s to cover ", self._open_cmd)
@@ -177,8 +181,7 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
         if self._config[CONF_POSITIONING_MODE] == COVER_MODE_TIMED:
             # for timed positioning, stop the cover after a full opening timespan
             # instead of waiting the internal timeout
-            await asyncio.sleep(self._config[CONF_SPAN_TIME] + 5)
-            await self.async_stop_cover()
+            self.hass.async_create_task(self.async_stop_after_timeout())
 
     async def async_close_cover(self, **kwargs):
         """Close cover."""
@@ -187,8 +190,7 @@ class LocaltuyaCover(LocalTuyaEntity, CoverEntity):
         if self._config[CONF_POSITIONING_MODE] == COVER_MODE_TIMED:
             # for timed positioning, stop the cover after a full opening timespan
             # instead of waiting the internal timeout
-            await asyncio.sleep(self._config[CONF_SPAN_TIME] + 5)
-            await self.async_stop_cover()
+            self.hass.async_create_task(self.async_stop_after_timeout())
 
     async def async_stop_cover(self, **kwargs):
         """Stop the cover."""
